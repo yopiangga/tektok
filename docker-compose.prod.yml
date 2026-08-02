@@ -1,0 +1,163 @@
+# =============================================================================
+# TOCS — stack produksi (VPS 43.106.5.212 / tektok.kameranusantara.id)
+#
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+#
+# Berdiri sendiri, bukan override dari docker-compose.yml, karena hampir semua
+# port dan environment-nya berbeda dan merge Compose menambah (bukan mengganti)
+# daftar ports — hasilnya akan membuka port dev yang tidak diinginkan.
+# =============================================================================
+name: tocs
+
+services:
+  # ---------------------------------------------------------------- database --
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-tocs}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Tidak ada `ports:` — database hanya dijangkau lewat network internal.
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-tocs}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [tocs]
+
+  # ----------------------------------------------------------- object storage --
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?set MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?set MINIO_SECRET_KEY}
+    volumes:
+      - miniodata:/data
+    ports:
+      # Console diikat ke loopback: dijangkau lewat SSH tunnel
+      #   ssh -L 9001:127.0.0.1:9001 root@43.106.5.212
+      # Membukanya ke publik berarti panel admin storage terekspos internet.
+      - '127.0.0.1:9001:9001'
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks: [tocs]
+
+  # ------------------------------------------------------------------ WebRTC --
+  livekit:
+    image: livekit/livekit-server:latest
+    restart: unless-stopped
+    command: --config /etc/livekit.yaml
+    environment:
+      # Kunci sengaja lewat env, bukan di dalam livekit.prod.yaml, agar berkas
+      # config bisa di-commit tanpa membocorkan rahasia.
+      LIVEKIT_KEYS: '${LIVEKIT_API_KEY:?set LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET}'
+    volumes:
+      - ./livekit.prod.yaml:/etc/livekit.yaml:ro
+    ports:
+      # 7880 (signalling) TIDAK dipublikasikan: browser mencapainya lewat
+      # wss://<domain>/livekit yang di-terminate TLS oleh Nginx. Halaman HTTPS
+      # menolak ws:// polos sebagai mixed content.
+      - '7881:7881' # ICE-TCP fallback
+      - '7882:7882/udp' # media (UDP mux)
+    networks: [tocs]
+
+  # -------------------------------------------------------------- backend API --
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-tocs}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-12h}
+      # Dibaca oleh `node dist/db/seed.js` yang dijalankan lewat `compose exec`
+      # di dalam container ini; tanpa diteruskan, seed selalu memakai default.
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      # Di production `allowPrivateLanOrigins` mati, jadi daftar ini harus persis.
+      CORS_ORIGIN: ${PUBLIC_URL:?set PUBLIC_URL}
+      PUBLIC_URL: ${PUBLIC_URL}
+      IDLE_AFTER_SECONDS: ${IDLE_AFTER_SECONDS:-60}
+      OFFLINE_AFTER_SECONDS: ${OFFLINE_AFTER_SECONDS:-180}
+      LOW_BATTERY_THRESHOLD: ${LOW_BATTERY_THRESHOLD:-20}
+      MINIO_ENABLED: 'true'
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: 'false'
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET: ${MINIO_BUCKET:-tocs-media}
+      LIVEKIT_ENABLED: 'true'
+      # Dipin (bukan 'auto'): 'auto' akan menghasilkan ws://<host>:7880 yang
+      # diblokir browser sebagai mixed content di halaman HTTPS.
+      LIVEKIT_URL: ${LIVEKIT_URL:?set LIVEKIT_URL}
+      LIVEKIT_PORT: 7880
+      LIVEKIT_INTERNAL_URL: http://livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+    volumes:
+      - uploads:/app/uploads
+    networks: [tocs]
+
+  # --------------------------------------------------------------- SPA bundle --
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    depends_on: [api]
+    networks: [tocs]
+
+  # ------------------------------------------------------------- reverse proxy --
+  proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on: [api, web, minio, livekit]
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    # Reload berkala supaya sertifikat yang baru diperbarui certbot langsung
+    # dipakai tanpa menurunkan layanan.
+    command: >
+      /bin/sh -c "while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g 'daemon off;'"
+    networks: [tocs]
+
+  # ------------------------------------------------------------- TLS renewal --
+  certbot:
+    image: certbot/certbot:latest
+    restart: unless-stopped
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    # --webroot dipaksa di sini agar perpanjangan memakai jalur yang sama
+    # dengan penerbitan pertama (lihat scripts/init-ssl.sh).
+    entrypoint: >
+      /bin/sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done"
+    networks: [tocs]
+
+volumes:
+  pgdata:
+  miniodata:
+  uploads:
+
+networks:
+  tocs:
+    driver: bridge

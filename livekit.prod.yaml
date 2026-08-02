@@ -1,0 +1,39 @@
+# =============================================================================
+# LiveKit — konfigurasi produksi TOCS.
+#
+# Kunci API TIDAK ditulis di sini. Kunci dibaca dari environment LIVEKIT_KEYS
+# yang di-set oleh docker-compose.prod.yml dari .env, supaya rahasia tidak ikut
+# masuk ke git.
+# =============================================================================
+
+port: 7880 # signalling HTTP/WebSocket — hanya diakses Nginx dari dalam network
+bind_addresses:
+  - 0.0.0.0
+
+rtc:
+  # Satu port UDP untuk SEMUA peserta (UDP mux). Alternatifnya adalah
+  # port_range_start/end, tetapi rentang 50000-50100 memaksa Docker menjalankan
+  # ~100 proses docker-proxy dan harus dibuka semuanya di firewall. Mux jauh
+  # lebih ringan dan cuma butuh satu lubang firewall.
+  udp_port: 7882
+
+  # Fallback ICE-TCP untuk jaringan yang memblokir UDP (kantor, hotel, beberapa
+  # operator seluler). Tanpa ini, klien di jaringan seperti itu tidak dapat
+  # video sama sekali.
+  tcp_port: 7881
+
+  # Alamat yang diiklankan LiveKit di ICE candidate-nya. Tanpa ini LiveKit
+  # mengiklankan IP bridge Docker (172.x) yang tidak bisa dirutekan browser
+  # mana pun: signalling berhasil, video tidak pernah datang.
+  node_ip: 43.106.5.212
+  use_external_ip: false
+
+# Single-node: tidak perlu Redis.
+logging:
+  level: info
+  json: false
+
+# TURN bawaan dimatikan. ICE-TCP di 7881 sudah menutup sebagian besar kasus
+# jaringan restriktif; TURN/TLS memerlukan sertifikat terpisah dan port 5349.
+turn:
+  enabled: false

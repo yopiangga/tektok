@@ -18,7 +18,37 @@ function resolveSchemaPath(): string {
   return found;
 }
 
+/**
+ * schema.sql opens with `DROP TABLE ... CASCADE`, so re-running it wipes every
+ * row. That is fine on a laptop and catastrophic on a deployed server, where the
+ * obvious reflex after `git pull` is to "just run the migration again". Refuse
+ * unless the operator says so explicitly.
+ */
+async function guardProduction(): Promise<void> {
+  if (process.env.NODE_ENV !== 'production') return;
+  if (process.env.ALLOW_DESTRUCTIVE_MIGRATE === 'true') return;
+
+  const { rows } = await pool.query<{ populated: boolean }>(
+    `SELECT to_regclass('public.users') IS NOT NULL AS populated`
+  );
+  if (!rows[0]?.populated) return;
+
+  console.error('[migrate] DIBATALKAN — database sudah berisi tabel.');
+  console.error('[migrate] schema.sql melakukan DROP TABLE: menjalankannya akan');
+  console.error('[migrate] menghapus SELURUH data produksi.');
+  console.error('');
+  console.error('[migrate] Untuk perubahan skema pada server yang sudah jalan,');
+  console.error('[migrate] pakai:  node dist/db/patch.js');
+  console.error('');
+  console.error('[migrate] Kalau memang ingin mengosongkan database, jalankan ulang');
+  console.error('[migrate] dengan ALLOW_DESTRUCTIVE_MIGRATE=true.');
+  await pool.end();
+  process.exit(1);
+}
+
 async function main() {
+  await guardProduction();
+
   const schemaPath = resolveSchemaPath();
   console.log(`[migrate] applying ${schemaPath}`);
 
