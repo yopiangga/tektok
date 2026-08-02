@@ -425,7 +425,11 @@ function CreateUserModal({
     onError: (err) => setError(apiErrorMessage(err, 'Gagal membuat pengguna')),
   });
 
-  const valid = username.trim().length >= 3 && password.length >= 8 && fullName.trim();
+  // Ambang ini harus sama dengan skema Zod di backend (routes/settings.ts).
+  // Kalau lebih ketat, tombol mati untuk password yang sebenarnya diterima server.
+  const MIN_PASSWORD = 6;
+  const valid =
+    username.trim().length >= 3 && password.length >= MIN_PASSWORD && fullName.trim();
 
   return (
     <Modal
@@ -618,7 +622,7 @@ function ResetPasswordModal({
             type="button"
             className="btn-primary btn-md"
             onClick={() => save.mutate()}
-            disabled={password.length < 8 || save.isPending}
+            disabled={password.length < 6 || save.isPending}
           >
             {save.isPending ? <Spinner size={16} /> : <KeyRound size={16} />}
             Simpan
