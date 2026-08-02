@@ -89,8 +89,10 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       # Di production `allowPrivateLanOrigins` mati, jadi daftar ini harus persis.
-      CORS_ORIGIN: ${PUBLIC_URL:?set PUBLIC_URL}
-      PUBLIC_URL: ${PUBLIC_URL}
+      # Saat frontend dan API dipisah ke dua domain, Origin yang dikirim browser
+      # adalah domain HALAMAN, bukan domain API — isi CORS_ORIGIN sendiri.
+      CORS_ORIGIN: ${CORS_ORIGIN:-$PUBLIC_URL}
+      PUBLIC_URL: ${PUBLIC_URL:?set PUBLIC_URL}
       IDLE_AFTER_SECONDS: ${IDLE_AFTER_SECONDS:-60}
       OFFLINE_AFTER_SECONDS: ${OFFLINE_AFTER_SECONDS:-180}
       LOW_BATTERY_THRESHOLD: ${LOW_BATTERY_THRESHOLD:-20}
