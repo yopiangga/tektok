@@ -23,6 +23,9 @@ const int = (min: number, max: number) => Math.floor(rnd() * (max - min + 1)) + 
 
 const CENTER = { lat: -6.2088, lng: 106.8456 }; // Jakarta Pusat
 
+/** Password seragam untuk semua akun demo. Timpa dengan DEMO_PASSWORD. */
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD ?? '123456';
+
 function nearby(spread = 0.06) {
   return {
     lat: CENTER.lat + (rnd() - 0.5) * spread * 2,
@@ -120,7 +123,7 @@ async function main() {
   const operationId = operation.rows[0].id;
 
   // -- Command users ---------------------------------------------------------
-  const hash = await bcrypt.hash('tocs12345', 10);
+  const hash = await bcrypt.hash(DEMO_PASSWORD, 10);
 
   const supers = await pool.query<{ id: number }>(
     `INSERT INTO users (username, password_hash, full_name, phone, badge_number, role_id, status, last_seen_at)
@@ -361,7 +364,7 @@ async function main() {
   }
 
   console.log('[seed:demo] done');
-  console.log('[seed:demo] login → admin / admin2 / p001..p100 — password: tocs12345');
+  console.log(`[seed:demo] login → admin / admin2 / p001..p100 — password: ${DEMO_PASSWORD}`);
   await pool.end();
 }
 

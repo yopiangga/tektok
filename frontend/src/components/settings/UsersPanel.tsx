@@ -497,7 +497,7 @@ function CreateUserModal({
               className="field font-mono"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="minimal 8 karakter"
+              placeholder="minimal 6 karakter"
             />
           </div>
         </div>
@@ -635,7 +635,7 @@ function ResetPasswordModal({
         className="field font-mono"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        placeholder="minimal 8 karakter"
+        placeholder="minimal 6 karakter"
         autoFocus
       />
       <p className="mt-2 text-xs text-ink-muted">

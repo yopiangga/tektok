@@ -510,7 +510,7 @@ const userSchema = z.object({
     .min(3, 'Username minimal 3 karakter')
     .max(64)
     .regex(/^[a-zA-Z0-9._-]+$/, 'Username hanya boleh huruf, angka, titik, garis bawah, dan strip'),
-  password: z.string().min(8, 'Password minimal 8 karakter').max(128),
+  password: z.string().min(6, 'Password minimal 6 karakter').max(128),
   fullName: z.string().min(1, 'Nama lengkap wajib diisi').max(200),
   phone: z.string().max(30).optional(),
   badgeNumber: z.string().max(50).optional(),
@@ -571,7 +571,7 @@ const userPatchSchema = z.object({
   badgeNumber: z.string().max(50).nullable().optional(),
   unitId: z.number().int().positive().nullable().optional(),
   isActive: z.boolean().optional(),
-  password: z.string().min(8, 'Password minimal 8 karakter').max(128).optional(),
+  password: z.string().min(6, 'Password minimal 6 karakter').max(128).optional(),
 });
 
 router.patch(

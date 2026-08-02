@@ -1,5 +1,5 @@
 {
-  "name": "@tocs/backend",
+  "name": "@tektok/backend",
   "version": "1.0.0",
   "private": true,
   "type": "commonjs",
@@ -15,7 +15,8 @@
     "db:setup": "npm run db:migrate && npm run db:seed",
     "db:setup:demo": "npm run db:migrate && npm run db:seed:demo",
     "simulate": "tsx src/tools/simulate.ts",
-    "db:patch": "tsx src/db/patch.ts"
+    "db:patch": "tsx src/db/patch.ts",
+    "users:reset-password": "tsx src/tools/reset-passwords.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

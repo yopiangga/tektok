@@ -24,7 +24,7 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[tocs] render crash', error, info.componentStack);
+    console.error('[tektok] render crash', error, info.componentStack);
   }
 
   render() {

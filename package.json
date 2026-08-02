@@ -20,7 +20,8 @@
     "db:seed:demo": "npm --workspace backend run db:seed:demo",
     "simulate": "npm --workspace backend run simulate",
     "typecheck": "npm --workspace backend run typecheck && npm --workspace frontend run typecheck",
-    "db:patch": "npm --workspace backend run db:patch"
+    "db:patch": "npm --workspace backend run db:patch",
+    "users:reset-password": "npm --workspace backend run users:reset-password"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

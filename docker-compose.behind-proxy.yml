@@ -1,0 +1,35 @@
+# =============================================================================
+# Override untuk VPS yang SUDAH menjalankan reverse proxy lain di port 80/443.
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.behind-proxy.yml \
+#     --env-file .env.production up -d --build
+#
+# 43.106.5.212 sudah menjalankan Apache untuk imt.mogiro.site. Override ini
+# membuat TOCS mendengarkan di 127.0.0.1:8080 saja, dan menyerahkan TLS serta
+# port 80/443 sepenuhnya ke Apache (lihat apache/tektok.conf).
+# =============================================================================
+
+services:
+  # Frontend dan API berada di domain berbeda, jadi alamat API harus dibakar
+  # ke dalam bundel saat build (Vite tidak membacanya saat runtime).
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_SOCKET_URL: ${VITE_SOCKET_URL:-/}
+
+  proxy:
+    ports: !override
+      # Hanya loopback: satu-satunya jalan masuk dari internet adalah Apache.
+      - '127.0.0.1:${TOCS_HTTP_PORT:-8080}:80'
+    volumes: !override
+      - ./nginx/nginx.behind-proxy.conf:/etc/nginx/nginx.conf:ro
+    # Tidak ada sertifikat untuk di-reload; jalankan Nginx apa adanya.
+    command: !override ['nginx', '-g', 'daemon off;']
+    depends_on: [api, web, minio, livekit]
+
+  # Sertifikat diurus certbot milik Apache di host, bukan container ini.
+  certbot:
+    profiles: [disabled]

@@ -79,16 +79,16 @@ const server = http.createServer(app);
 initSocket(server);
 
 server.listen(env.port, () => {
-  console.log(`[tocs] API listening on :${env.port} (${env.nodeEnv})`);
-  console.log(`[tocs] CORS origins: ${env.corsOrigin.join(', ')}`);
-  if (env.allowPrivateLanOrigins) console.log('[tocs] CORS: origin LAN privat juga diizinkan (non-produksi)');
-  console.log(`[tocs] storage: ${env.minio.enabled ? 'MinIO' : 'local disk'}`);
+  console.log(`[tektok] API listening on :${env.port} (${env.nodeEnv})`);
+  console.log(`[tektok] CORS origins: ${env.corsOrigin.join(', ')}`);
+  if (env.allowPrivateLanOrigins) console.log('[tektok] CORS: origin LAN privat juga diizinkan (non-produksi)');
+  console.log(`[tektok] storage: ${env.minio.enabled ? 'MinIO' : 'local disk'}`);
   void reportLivekitStatus();
   startPresenceSweep();
 });
 
 async function shutdown(signal: string) {
-  console.log(`[tocs] ${signal} received, shutting down`);
+  console.log(`[tektok] ${signal} received, shutting down`);
   server.close(async () => {
     await pool.end();
     process.exit(0);

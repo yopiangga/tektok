@@ -2,6 +2,7 @@ import { ChevronDown, Cog, LogOut, Radio, ShieldCheck, Wifi, WifiOff } from 'luc
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useNow, useSocketStatus } from '../../hooks/useSocketEvent';
+import { BRAND, BRAND_TAGLINE } from '../../lib/brand';
 import { cx } from '../../lib/format';
 import type { Operation } from '../../lib/types';
 import { useAuth } from '../../store/auth';
@@ -43,12 +44,18 @@ export default function DashboardHeader({ operation }: { operation?: Operation |
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-accent text-white shadow-soft">
             <ShieldCheck size={20} />
           </div>
-          <div className="hidden min-w-0 sm:block">
-            <p className="truncate text-sm font-semibold leading-tight text-ink">
-              {operation?.name ?? 'Tactical Operations Command'}
+          {/*
+            Brand di baris pertama dan selalu tampil — termasuk di layar sempit,
+            di mana sebelumnya seluruh blok ini disembunyikan sehingga dashboard
+            tidak menampilkan nama sistem sama sekali. Operasi aktif turun ke
+            baris kedua sebagai konteks.
+          */}
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold leading-tight tracking-[0.18em] text-ink">
+              {BRAND}
             </p>
-            <p className="truncate text-xs text-ink-muted">
-              {operation?.code ?? 'TOCS'} · Pusat Komando
+            <p className="hidden truncate text-xs text-ink-muted sm:block">
+              {operation ? `${operation.code} · ${operation.name}` : BRAND_TAGLINE}
             </p>
           </div>
         </div>

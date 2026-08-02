@@ -348,7 +348,7 @@ router.get(
     ];
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="tocs-reports.csv"');
+    res.setHeader('Content-Disposition', 'attachment; filename="tektok-reports.csv"');
     res.send(lines.join('\n'));
   })
 );

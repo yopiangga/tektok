@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Download, FileText, Paperclip, Pencil, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api, apiErrorMessage, tokenStore } from '../../lib/api';
+import { BRAND_SLUG } from '../../lib/brand';
 import { REPORT_TYPE_LABEL, cx, formatDateTime, timeAgo } from '../../lib/format';
 import type { Report } from '../../lib/types';
 import { useAuth } from '../../store/auth';
@@ -59,7 +60,7 @@ export default function ReportsPanel({
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `tocs-reports-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.download = `${BRAND_SLUG}-reports-${new Date().toISOString().slice(0, 10)}.csv`;
       link.click();
       URL.revokeObjectURL(url);
     } finally {

@@ -1,4 +1,4 @@
-# Deploy TOCS ke VPS
+# Deploy TEKTOK ke VPS
 
 | | |
 |---|---|

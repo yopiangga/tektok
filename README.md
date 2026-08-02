@@ -1,4 +1,4 @@
-# TOCS — Tactical Operations Command System
+# TEKTOK — Sistem Komando Operasi Taktis
 
 Sistem komando berbasis web untuk memantau, mengoordinasikan, dan mendokumentasikan
 operasi lapangan. Dirancang untuk ±100 personel aktif secara bersamaan.
@@ -118,7 +118,7 @@ npm run db:seed:demo      # dataset demo saja
 | `admin`, `admin2` | Super User |
 | `p001` … `p100` | Personel |
 
-Password seluruh akun demo: `tocs12345`.
+Password seluruh akun demo: `123456`.
 
 > `db:seed:demo` melakukan `TRUNCATE` pada seluruh tabel dan menolak berjalan
 > bila `NODE_ENV=production`. Kredensial demo hanya ditampilkan di halaman login

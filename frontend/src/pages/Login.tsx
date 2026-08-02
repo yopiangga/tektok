@@ -2,6 +2,7 @@ import { AlertCircle, Eye, EyeOff, Lock, ShieldCheck, User } from 'lucide-react'
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Spinner } from '../components/ui/Primitives';
+import { BRAND, BRAND_TAGLINE } from '../lib/brand';
 import { homeFor } from '../App';
 import { useAuth } from '../store/auth';
 
@@ -54,8 +55,8 @@ export default function Login() {
             <ShieldCheck size={22} />
           </div>
           <div>
-            <p className="text-sm font-bold tracking-[0.2em]">TOCS</p>
-            <p className="text-xs text-white/60">Tactical Operations Command System</p>
+            <p className="text-sm font-bold tracking-[0.2em]">{BRAND}</p>
+            <p className="text-xs text-white/60">{BRAND_TAGLINE}</p>
           </div>
         </div>
 
@@ -95,8 +96,8 @@ export default function Login() {
               <ShieldCheck size={22} />
             </div>
             <div>
-              <p className="text-sm font-bold tracking-[0.2em] text-ink">TOCS</p>
-              <p className="text-xs text-ink-muted">Command System</p>
+              <p className="text-sm font-bold tracking-[0.2em] text-ink">{BRAND}</p>
+              <p className="text-xs text-ink-muted">{BRAND_TAGLINE}</p>
             </div>
           </div>
 
@@ -193,7 +194,7 @@ export default function Login() {
                   <span className="font-mono font-medium text-ink">p001</span> … p100 · Personel
                 </li>
                 <li className="pt-1 text-ink-muted">
-                  Password: <span className="font-mono text-ink">tocs12345</span> — tersedia setelah{' '}
+                  Password: <span className="font-mono text-ink">123456</span> — tersedia setelah{' '}
                   <span className="font-mono">npm run db:seed:demo</span>
                 </li>
               </ul>

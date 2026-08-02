@@ -13,7 +13,7 @@
 
 const API_URL = process.env.API_URL ?? 'http://localhost:4000';
 const COUNT = Number(process.env.COUNT ?? 40);
-const PASSWORD = process.env.SIM_PASSWORD ?? 'tocs12345';
+const PASSWORD = process.env.SIM_PASSWORD ?? '123456';
 const INTERVAL_MS = Number(process.env.SIM_INTERVAL_MS ?? 10_000);
 
 const CENTER = { lat: -6.2088, lng: 106.8456 };

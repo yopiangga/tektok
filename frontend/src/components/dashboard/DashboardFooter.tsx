@@ -1,4 +1,5 @@
 import { useSocketStatus } from '../../hooks/useSocketEvent';
+import { BRAND, BRAND_VERSION } from '../../lib/brand';
 import { cx } from '../../lib/format';
 import type { DashboardStats, Operation, Unit } from '../../lib/types';
 
@@ -17,7 +18,7 @@ export default function DashboardFooter({
     <footer className="mt-4 border-t border-line bg-canvas-raised px-4 py-3 lg:px-6">
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-xs text-ink-muted">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <span className="font-semibold text-ink-soft">TOCS v1.0</span>
+          <span className="font-semibold text-ink-soft">{`${BRAND} ${BRAND_VERSION}`}</span>
           <span className="hidden sm:inline">·</span>
           <span>{operation?.name ?? 'Tidak ada operasi aktif'}</span>
           {operation && (
