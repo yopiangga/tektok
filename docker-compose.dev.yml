@@ -1,0 +1,70 @@
+# Local development infrastructure.
+#
+# `npm run dev` runs the API and the web app on the host, but streaming and
+# object storage need real servers. Start them with:
+#
+#     npm run infra:up
+#
+# Streaming from a phone on the same Wi-Fi additionally needs HOST_IP set to
+# this machine's LAN address, so LiveKit advertises ICE candidates the phone can
+# actually reach (a container IP is unreachable from outside the host):
+#
+#     HOST_IP=192.168.1.10 npm run infra:up
+#
+name: tocs-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tocs-dev-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tocs}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tocs}
+      POSTGRES_DB: ${POSTGRES_DB:-tocs}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - devpg:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-tocs}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: tocs-dev-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-tocsadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-tocsadmin123}
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - devminio:/data
+
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: tocs-dev-livekit
+    restart: unless-stopped
+    # --node-ip pins the address LiveKit puts in its ICE candidates, and it is
+    # the single most common reason "streaming connects but shows no video".
+    # Left unset, the container advertises its docker-network IP (172.x), which
+    # nothing outside the Docker bridge can route to — the WebSocket connects,
+    # the room opens, and media silently never arrives.
+    #   127.0.0.1     → browsers on this machine (default)
+    #   <LAN address> → phones on the same Wi-Fi: HOST_IP=192.168.1.10
+    command: --dev --bind 0.0.0.0 --node-ip=${HOST_IP:-127.0.0.1}
+    environment:
+      LIVEKIT_KEYS: '${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-devsecretdevsecretdevsecret0123456789}'
+    ports:
+      - '7880:7880' # signaling (WebSocket)
+      - '7881:7881' # WebRTC over TCP fallback
+      - '7882:7882/udp' # WebRTC media — --dev uses this single port, not a range
+
+volumes:
+  devpg:
+  devminio:

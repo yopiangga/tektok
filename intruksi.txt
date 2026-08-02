@@ -1,0 +1,1156 @@
+```markdown
+# Tactical Operations Command System (TOCS)
+## System Blueprint v1.0
+
+---
+
+# Overview
+
+## Objective
+
+Build a web-based Tactical Operations Command System (TOCS) for monitoring, coordinating, and documenting field operations.
+
+The system is designed for approximately **100 concurrent active personnel** and consists of only two applications:
+
+1. Command Center Dashboard
+2. Personnel Web Application
+
+No AI features.
+No CCTV integration.
+No mobile application (browser only).
+
+---
+
+# Design Principles
+
+## Dashboard
+
+- Information-rich
+- Real-time updates
+- Easy situational awareness
+- Minimal clicks
+- Responsive
+- Dark mode optimized
+- Designed for large monitors
+
+---
+
+## Personnel
+
+- Extremely simple
+- Large buttons
+- Easy for non-technical users
+- Maximum 2-3 clicks for every action
+- Mobile-first responsive design
+
+---
+
+# User Roles
+
+## 1. Commander
+
+Permissions
+
+- View all personnel
+- View map
+- View reports
+- Watch live streams
+- Create incidents
+- Assign missions
+- Monitor activities
+- Export reports
+
+---
+
+## 2. Operator
+
+Permissions
+
+- Monitor dashboard
+- Verify reports
+- Create incidents
+- Assign missions
+- Watch streams
+
+Cannot
+
+- Manage users
+- Delete operations
+
+---
+
+## 3. Personnel
+
+Permissions
+
+- Login
+- Share GPS
+- Submit reports
+- Start streaming
+- View assigned missions
+- Receive notifications
+- Chat with operator
+
+Nothing else.
+
+---
+
+# System Architecture
+
+                    Internet
+
+                         │
+
+                  HTTPS / WSS
+
+                         │
+
+                Reverse Proxy (Nginx)
+
+                         │
+
+               -----------------------
+
+               │                     │
+
+          Backend API          WebSocket Server
+
+               │                     │
+
+               ------- PostgreSQL ----
+
+                         │
+
+                  File Storage
+
+                     (MinIO)
+
+                         │
+
+                  WebRTC Server
+
+                  (LiveKit)
+
+---
+
+# Technology Stack
+
+Frontend
+
+- React
+- Vite
+- TypeScript
+- TailwindCSS
+- React Router
+- TanStack Query
+
+Backend
+
+- ExpressJS
+- TypeScript
+- Socket.IO
+- JWT Authentication
+
+Database
+
+- PostgreSQL
+
+Storage
+
+- MinIO
+
+Realtime
+
+- Socket.IO
+
+Streaming
+
+- WebRTC
+- LiveKit
+
+Deployment
+
+- Docker
+- Docker Compose
+
+Reverse Proxy
+
+- Nginx
+
+---
+
+# Main Modules
+
+1. Authentication
+
+2. Dashboard
+
+3. Personnel
+
+4. Missions
+
+5. Reports
+
+6. Incident Management
+
+7. Live Streaming
+
+8. Activity Timeline
+
+9. Notification Center
+
+10. Chat
+
+11. Map
+
+12. System Settings
+
+---
+
+# Dashboard Layout
+
++---------------------------------------------------------------+
+
+HEADER
+
+---------------------------------------------------------------
+
+Statistics Cards
+
+---------------------------------------------------------------
+
+Map
+
+Personnels
+
+Streaming
+
+---------------------------------------------------------------
+
+Timeline
+
+Incidents
+
+---------------------------------------------------------------
+
+Mission List
+
+Notification
+
+---------------------------------------------------------------
+
+Footer
+
++---------------------------------------------------------------+
+
+---
+
+# Dashboard Components
+
+---
+
+## Header
+
+Displays
+
+- Operation Name
+- Current Time
+- Logged User
+- System Status
+- Logout
+
+---
+
+## Statistics Cards
+
+Cards
+
+Active Personnel
+
+Streaming Now
+
+Open Incidents
+
+Reports Today
+
+Pending Missions
+
+Online %
+
+Example
+
+-------------------------------------
+
+Personnel
+
+97 / 100
+
+-------------------------------------
+
+Streaming
+
+8
+
+-------------------------------------
+
+Reports
+
+134
+
+-------------------------------------
+
+Incident
+
+2
+
+-------------------------------------
+
+---
+
+## Interactive Map
+
+Largest dashboard component.
+
+Features
+
+- Current personnel locations
+- Incident markers
+- Report markers
+- Mission markers
+
+Functions
+
+- Zoom
+- Search
+- Filter
+- Click marker
+
+Marker Colors
+
+Green
+
+Online Personnel
+
+Yellow
+
+Idle
+
+Red
+
+Offline
+
+Blue
+
+Incident
+
+Orange
+
+Report
+
+---
+
+## Personnel Panel
+
+Columns
+
+Status
+
+Name
+
+Unit
+
+Battery
+
+Signal
+
+Mission
+
+Streaming
+
+Last Update
+
+Actions
+
+Click row
+
+Open detail.
+
+---
+
+## Personnel Detail
+
+Information
+
+Photo
+
+Name
+
+Unit
+
+Phone
+
+Status
+
+Current GPS
+
+Battery
+
+Network
+
+Current Mission
+
+Current Stream
+
+Recent Reports
+
+Buttons
+
+View Stream
+
+Assign Mission
+
+Send Chat
+
+Locate On Map
+
+---
+
+## Live Streaming Panel
+
+Shows
+
+All active streams.
+
+Grid Layout
+
+2x2
+
+3x3
+
+4x4
+
+Each stream displays
+
+Officer Name
+
+Unit
+
+Duration
+
+Signal Quality
+
+Buttons
+
+Expand
+
+Mute
+
+Stop Viewing
+
+---
+
+## Timeline
+
+Realtime activity feed.
+
+Examples
+
+08:15
+
+Officer 12 submitted report
+
+08:18
+
+Mission assigned
+
+08:22
+
+Streaming started
+
+08:25
+
+Incident created
+
+08:27
+
+Officer 18 changed location
+
+---
+
+## Incident Panel
+
+Columns
+
+Priority
+
+Title
+
+Location
+
+Reporter
+
+Created At
+
+Status
+
+Buttons
+
+View
+
+Assign
+
+Close
+
+---
+
+## Mission Panel
+
+Columns
+
+Officer
+
+Mission
+
+Priority
+
+Status
+
+Deadline
+
+Buttons
+
+View
+
+Edit
+
+Complete
+
+---
+
+## Notification Center
+
+Realtime notifications
+
+Examples
+
+Battery Low
+
+Personnel Offline
+
+Mission Completed
+
+Streaming Started
+
+New Report
+
+---
+
+## Search
+
+Search everything
+
+Personnel
+
+Mission
+
+Incident
+
+Report
+
+Location
+
+---
+
+## Filters
+
+Personnel Status
+
+Mission Status
+
+Unit
+
+Streaming
+
+Incident Level
+
+---
+
+# Personnel Web
+
+Home Screen
+
+--------------------------------
+
+STATUS
+
+ONLINE
+
+--------------------------------
+
+[LIVE STREAM]
+
+[REPORT]
+
+[MISSION]
+
+[CHAT]
+
+[PROFILE]
+
+--------------------------------
+
+Nothing else.
+
+---
+
+# Live Stream Page
+
+Large camera preview.
+
+Buttons
+
+START STREAM
+
+STOP STREAM
+
+Camera Switch
+
+Microphone
+
+Connection Status
+
+---
+
+# Report Page
+
+Report Type
+
+Dropdown
+
+Information
+
+Incident
+
+Request Help
+
+Description
+
+Textarea
+
+Attachments
+
+Photo
+
+Video
+
+GPS automatically attached
+
+Button
+
+SEND REPORT
+
+---
+
+# Mission Page
+
+Shows only
+
+Mission Title
+
+Description
+
+Priority
+
+Assigned Time
+
+Commander
+
+Status
+
+Button
+
+MARK COMPLETED
+
+---
+
+# Chat Page
+
+Simple conversation.
+
+Only
+
+Operator
+
+Commander
+
+No group chat.
+
+---
+
+# Profile Page
+
+Shows
+
+Name
+
+Unit
+
+Phone
+
+Logout
+
+---
+
+# Data Flow
+
+Personnel Login
+
+↓
+
+GPS sent every 10 seconds
+
+↓
+
+Dashboard updated
+
+↓
+
+Personnel submits report
+
+↓
+
+Backend
+
+↓
+
+Database
+
+↓
+
+WebSocket Event
+
+↓
+
+Dashboard updated instantly
+
+---
+
+# Mission Flow
+
+Commander
+
+↓
+
+Create Mission
+
+↓
+
+Assign Personnel
+
+↓
+
+Personnel receives notification
+
+↓
+
+Personnel accepts
+
+↓
+
+Mission status becomes Running
+
+↓
+
+Personnel completes
+
+↓
+
+Commander notified
+
+---
+
+# Report Flow
+
+Personnel
+
+↓
+
+Open Report
+
+↓
+
+Write description
+
+↓
+
+Attach media
+
+↓
+
+Submit
+
+↓
+
+Database
+
+↓
+
+Timeline updated
+
+↓
+
+Notification sent
+
+↓
+
+Dashboard updated
+
+---
+
+# Streaming Flow
+
+Personnel
+
+↓
+
+Click Start
+
+↓
+
+WebRTC
+
+↓
+
+LiveKit
+
+↓
+
+Commander Dashboard
+
+↓
+
+Optional recording
+
+---
+
+# Database Tables
+
+Users
+
+Units
+
+Roles
+
+Operations
+
+PersonnelLocations
+
+Reports
+
+ReportMedia
+
+Missions
+
+MissionAssignments
+
+Incidents
+
+Streams
+
+Notifications
+
+Messages
+
+ActivityLogs
+
+SystemLogs
+
+---
+
+# Realtime Events
+
+Socket Events
+
+user_online
+
+user_offline
+
+location_updated
+
+mission_created
+
+mission_completed
+
+report_created
+
+incident_created
+
+stream_started
+
+stream_stopped
+
+notification
+
+chat_message
+
+---
+
+# Dashboard Refresh Policy
+
+Statistics
+
+Realtime
+
+Map
+
+Realtime
+
+Timeline
+
+Realtime
+
+Streaming
+
+Realtime
+
+Personnel Status
+
+Realtime
+
+Notifications
+
+Realtime
+
+---
+
+# Security
+
+JWT Authentication
+
+HTTPS
+
+Secure Cookies
+
+Rate Limiter
+
+CSRF Protection
+
+XSS Protection
+
+Helmet
+
+Audit Logs
+
+Role Based Access
+
+---
+
+# Performance Targets
+
+Concurrent Users
+
+100
+
+Concurrent Streams
+
+10
+
+Dashboard Response
+
+< 2 seconds
+
+Realtime Delay
+
+< 1 second
+
+GPS Update
+
+Every 10 seconds
+
+Image Upload
+
+< 3 seconds
+
+---
+
+# API Modules
+
+Auth
+
+/auth/login
+
+/auth/logout
+
+/auth/me
+
+---
+
+Personnel
+
+/personnel
+
+/personnel/location
+
+/personnel/status
+
+---
+
+Reports
+
+/reports
+
+/reports/upload
+
+---
+
+Missions
+
+/missions
+
+/missions/assign
+
+/missions/complete
+
+---
+
+Incidents
+
+/incidents
+
+/incidents/close
+
+---
+
+Streams
+
+/streams/start
+
+/streams/stop
+
+---
+
+Notifications
+
+/notifications
+
+---
+
+Messages
+
+/messages
+
+---
+
+# UI Style Guide
+
+Primary Color
+
+#0F172A
+
+Accent
+
+#2563EB
+
+Success
+
+#10B981
+
+Warning
+
+#F59E0B
+
+Danger
+
+#EF4444
+
+Background
+
+#020617
+
+Cards
+
+#111827
+
+Border Radius
+
+12px
+
+Shadow
+
+Soft
+
+Font
+
+Inter
+
+Icons
+
+Lucide Icons
+
+---
+
+# Future Roadmap (Out of Scope v1)
+
+- AI report summarization
+- AI object detection
+- CCTV integration
+- Drone integration
+- Facial recognition
+- Offline synchronization (PWA)
+- Push notifications
+- Multi-operation support
+- GIS layers
+- Heatmap visualization
+- Analytics dashboard
+- PDF report generator
+- Multi-language support
+
+---
+
+# Development Phases
+
+## Phase 1 (Core Foundation)
+
+- Authentication
+- Role Management
+- Dashboard Layout
+- Personnel Web
+- GPS Tracking
+- WebSocket Infrastructure
+- PostgreSQL Schema
+
+---
+
+## Phase 2 (Operations)
+
+- Reports
+- Missions
+- Notifications
+- Activity Timeline
+- Interactive Map
+- Personnel Detail
+
+---
+
+## Phase 3 (Monitoring)
+
+- Live Streaming
+- Chat
+- Incident Management
+- File Upload
+- Audit Logs
+- Dashboard Optimization
+
+---
+
+# Success Criteria
+       
+- Support 100 concurrent active users
+- Real-time updates under 1 second
+- Personnel can submit reports in less than 30 seconds
+- Commander can identify personnel status in under 5 seconds
+- Commander can open any live stream in under 2 seconds
+- System uptime target >99%
+- Responsive on desktop and mobile browsers
+- Clean, intuitive UI requiring minimal training
+```

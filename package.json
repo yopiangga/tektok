@@ -1,0 +1,27 @@
+{
+  "name": "tocs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tactical Operations Command System (TOCS)",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "infra:up": "node scripts/infra-up.mjs",
+    "infra:down": "docker compose -f docker-compose.dev.yml down",
+    "infra:logs": "docker compose -f docker-compose.dev.yml logs -f",
+    "dev": "concurrently -n api,web -c blue,green \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm --workspace backend run dev",
+    "dev:web": "npm --workspace frontend run dev",
+    "build": "npm --workspace backend run build && npm --workspace frontend run build",
+    "db:setup": "npm --workspace backend run db:setup",
+    "db:setup:demo": "npm --workspace backend run db:setup:demo",
+    "db:seed:demo": "npm --workspace backend run db:seed:demo",
+    "simulate": "npm --workspace backend run simulate",
+    "typecheck": "npm --workspace backend run typecheck && npm --workspace frontend run typecheck"
+  },  
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

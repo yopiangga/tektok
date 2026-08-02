@@ -1,0 +1,132 @@
+name: tocs
+
+services:
+  # ---------------------------------------------------------------- database --
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tocs}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tocs}
+      POSTGRES_DB: ${POSTGRES_DB:-tocs}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-tocs} -d ${POSTGRES_DB:-tocs}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [tocs]
+
+  # ----------------------------------------------------------- object storage --
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-tocsadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-tocsadmin123}
+    volumes:
+      - miniodata:/data
+    ports:
+      - '9001:9001' # web console
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks: [tocs]
+
+  # ------------------------------------------------------------------ WebRTC --
+  livekit:
+    image: livekit/livekit-server:latest
+    restart: unless-stopped
+    # --node-ip decides which address ends up in the ICE candidates. Without it
+    # LiveKit advertises its docker-network IP, which no client outside the
+    # bridge can route to: signaling succeeds and video never arrives.
+    # Set HOST_IP to the address clients actually use to reach this host
+    # (LAN IP for phones, public IP/hostname for a real deployment).
+    command: --dev --bind 0.0.0.0 --node-ip=${HOST_IP:-127.0.0.1}
+    environment:
+      LIVEKIT_KEYS: '${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-devsecretdevsecretdevsecret0123456789}'
+    ports:
+      - '7880:7880' # signaling (WebSocket)
+      - '7881:7881' # WebRTC over TCP fallback
+      # --dev serves WebRTC media on a SINGLE UDP port (7882), not a range.
+      # Publishing the 50000-50100 range instead silently blocks all media:
+      # signaling connects, the room opens, and no video ever arrives.
+      # For a non-dev deployment, supply livekit.yaml with a udp port range
+      # (and a TURN server for restrictive networks) and publish that range here.
+      - '7882:7882/udp'
+    networks: [tocs]
+
+  # --------------------------------------------------------------- backend API --
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgres://${POSTGRES_USER:-tocs}:${POSTGRES_PASSWORD:-tocs}@postgres:5432/${POSTGRES_DB:-tocs}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-12h}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
+      IDLE_AFTER_SECONDS: ${IDLE_AFTER_SECONDS:-60}
+      OFFLINE_AFTER_SECONDS: ${OFFLINE_AFTER_SECONDS:-180}
+      LOW_BATTERY_THRESHOLD: ${LOW_BATTERY_THRESHOLD:-20}
+      # Hardcoded on: this compose file starts MinIO and LiveKit, so the API must
+      # use them. The .env toggles exist for `npm run dev`, where neither runs.
+      MINIO_ENABLED: 'true'
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: 'false'
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-tocsadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-tocsadmin123}
+      MINIO_BUCKET: ${MINIO_BUCKET:-tocs-media}
+      LIVEKIT_ENABLED: 'true'
+      # 'auto' derives the browser-facing URL from the host each client used, so
+      # a phone on the LAN gets the LAN address instead of the server's own
+      # localhost. Pin LIVEKIT_URL only for a fixed public/TLS endpoint.
+      LIVEKIT_URL: ${LIVEKIT_URL:-auto}
+      LIVEKIT_PORT: 7880
+      LIVEKIT_INTERNAL_URL: http://livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-devsecretdevsecretdevsecret0123456789}
+    volumes:
+      - uploads:/app/uploads
+    networks: [tocs]
+
+  # --------------------------------------------------------------- SPA bundle --
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    depends_on: [api]
+    networks: [tocs]
+
+  # ------------------------------------------------------------- reverse proxy --
+  proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on: [api, web, minio]
+    ports:
+      - '${HTTP_PORT:-8080}:80'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks: [tocs]
+
+volumes:
+  pgdata:
+  miniodata:
+  uploads:
+
+networks:
+  tocs:
+    driver: bridge

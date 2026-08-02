@@ -1,0 +1,226 @@
+@import 'leaflet/dist/leaflet.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    @apply bg-accent/15 text-ink;
+  }
+
+  /* Slim, low-contrast scrollbars so dense panels stay calm. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-line-strong;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent/50 ring-offset-2 ring-offset-canvas;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-line bg-canvas-raised shadow-soft;
+  }
+
+  .card-header {
+    @apply flex items-center justify-between gap-3 border-b border-line px-4 py-3;
+  }
+
+  .card-title {
+    @apply flex items-center gap-2 text-sm font-semibold text-ink;
+  }
+
+  .panel-scroll {
+    @apply overflow-y-auto overscroll-contain;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-lg border text-sm font-medium
+           transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn border-transparent bg-accent text-white hover:bg-accent-strong;
+  }
+
+  .btn-secondary {
+    @apply btn border-line bg-canvas-raised text-ink-soft hover:bg-canvas-sunken;
+  }
+
+  .btn-danger {
+    @apply btn border-transparent bg-danger text-white hover:bg-danger-strong;
+  }
+
+  .btn-md {
+    @apply h-9 px-3.5;
+  }
+
+  .btn-sm {
+    @apply h-8 px-3 text-xs;
+  }
+
+  .btn-lg {
+    @apply h-12 px-5 text-base;
+  }
+
+  .field {
+    @apply w-full rounded-lg border border-line bg-canvas-raised px-3 py-2 text-sm text-ink
+           placeholder:text-ink-faint focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20;
+  }
+
+  .label {
+    @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-muted;
+  }
+
+  .table-head {
+    @apply sticky top-0 z-10 bg-canvas-sunken/95 backdrop-blur;
+  }
+
+  .table-head th {
+    @apply whitespace-nowrap px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted;
+  }
+
+  .table-row {
+    @apply cursor-pointer border-t border-line transition-colors hover:bg-accent-soft;
+  }
+
+  .table-row td {
+    @apply px-3 py-2 align-middle text-sm;
+  }
+}
+
+/* --- Personnel app (immersive, TikTok-style) ------------------------------- */
+@layer components {
+  /* Full-height snap feed: one screen per card, like a short-video feed. */
+  .feed {
+    @apply h-full snap-y snap-mandatory overflow-y-scroll overscroll-y-contain;
+    scrollbar-width: none;
+  }
+  .feed::-webkit-scrollbar {
+    display: none;
+  }
+
+  .feed-card {
+    @apply relative flex h-full w-full shrink-0 snap-start snap-always flex-col justify-end overflow-hidden;
+  }
+
+  /* Circular action button in the right-hand rail. */
+  .rail-btn {
+    @apply grid h-12 w-12 place-items-center rounded-full bg-white/15 text-white backdrop-blur
+           transition-transform active:scale-90;
+  }
+
+  .rail-label {
+    @apply mt-1 block text-center text-[10px] font-semibold text-white/90 drop-shadow;
+  }
+
+  /* Text overlaid on video/imagery needs its own contrast floor. */
+  .overlay-text {
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  }
+
+  .glass-chip {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-black/40 px-2.5 py-1 text-[11px]
+           font-semibold text-white backdrop-blur;
+  }
+
+  /* Scrolling (non-feed) screens in the personnel app. Top padding clears the
+     floating status strip, which overlays rather than occupies space. */
+  .field-page {
+    @apply h-full space-y-4 overflow-y-auto overscroll-contain px-4 pb-6 pt-14;
+    color-scheme: dark;
+  }
+
+  /* Shared light-mode primitives, restyled for the dark field surface, so the
+     components themselves stay single-purpose. */
+  .field-page .field {
+    @apply border-night-line bg-night-raised text-white placeholder:text-white/35
+           focus:border-accent focus:ring-accent/30;
+  }
+  .field-page .label {
+    @apply text-white/55;
+  }
+  .field-page .btn-secondary {
+    @apply border-night-line bg-night-raised text-white hover:bg-white/10;
+  }
+  .field-page .card-header {
+    @apply border-night-line;
+  }
+  .field-page .card-title {
+    @apply text-white;
+  }
+  .field-page .panel-scroll {
+    @apply overflow-visible;
+  }
+}
+
+/* --- Leaflet -------------------------------------------------------------- */
+.leaflet-container {
+  @apply font-sans;
+  background: #eef2f6;
+}
+
+.leaflet-control-attribution {
+  @apply text-[10px] text-ink-faint;
+}
+
+.leaflet-popup-content-wrapper {
+  @apply rounded-xl border border-line shadow-lift;
+}
+
+.leaflet-popup-content {
+  @apply m-0 p-0;
+}
+
+.leaflet-popup-tip {
+  @apply border border-line;
+}
+
+.leaflet-div-icon,
+.tocs-divicon {
+  background: transparent;
+  border: 0;
+}
+
+/* Halo on markers of personnel who are currently broadcasting. */
+@keyframes tocs-blip {
+  0%,
+  100% {
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.35), 0 0 0 0 rgba(37, 99, 235, 0.55);
+  }
+  50% {
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.35), 0 0 0 9px rgba(37, 99, 235, 0);
+  }
+}
