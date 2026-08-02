@@ -138,7 +138,9 @@ router.get(
     if (!row) return res.status(404).json({ error: 'Personel tidak ditemukan' });
 
     const reports = await query(
-      `SELECT id, type, title, description, status, lat, lng, created_at
+      // Tanpa kolom `status`: laporan adalah catatan, bukan kiriman yang
+      // menunggu persetujuan, jadi kolom itu sudah hilang dari skema.
+      `SELECT id, type, title, description, lat, lng, created_at
          FROM reports WHERE user_id = $1 ORDER BY created_at DESC LIMIT 5`,
       [id]
     );
@@ -156,7 +158,6 @@ router.get(
         type: r.type,
         title: r.title,
         description: r.description,
-        status: r.status,
         lat: r.lat,
         lng: r.lng,
         createdAt: r.created_at,

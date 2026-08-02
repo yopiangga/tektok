@@ -194,20 +194,18 @@ async function main() {
     const uid = pick(personnelIds);
     const pos = nearby();
     const type = pick(['information', 'information', 'incident', 'request_help']);
-    const status = pick(['pending', 'verified', 'verified', 'rejected']);
     const minutesAgo = int(1, 700);
+    // Tanpa status/verified_by/verified_at: laporan adalah catatan, bukan
+    // kiriman yang menunggu persetujuan, jadi kolom itu sudah hilang dari skema.
     const row = await pool.query<{ id: number }>(
-      `INSERT INTO reports (operation_id, user_id, type, title, description, lat, lng, status,
-                            verified_by, verified_at, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, NOW() - ($11 || ' minutes')::interval)
+      `INSERT INTO reports (operation_id, user_id, type, title, description, lat, lng, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7, NOW() - ($8 || ' minutes')::interval)
        RETURNING id`,
       [
         operationId, uid, type,
         `Laporan ${pick(LOCATION_NAMES)}`,
         pick(REPORT_TEXT),
-        pos.lat, pos.lng, status,
-        status === 'verified' ? operatorId : null,
-        status === 'verified' ? new Date() : null,
+        pos.lat, pos.lng,
         minutesAgo,
       ]
     );
@@ -335,7 +333,7 @@ async function main() {
     ['personnel_offline', 'Personel Offline', 'Personel tidak mengirim GPS lebih dari 3 menit.', 'danger'],
     ['mission_completed', 'Misi Selesai', 'Satu misi telah ditandai selesai.', 'success'],
     ['stream_started', 'Siaran Dimulai', 'Personel memulai siaran langsung.', 'info'],
-    ['new_report', 'Laporan Baru', 'Laporan baru menunggu verifikasi.', 'info'],
+    ['new_report', 'Laporan Baru', 'Laporan baru masuk dari lapangan.', 'info'],
   ];
   for (let i = 0; i < 18; i++) {
     const [type, title, body, severity] = pick(notifs);

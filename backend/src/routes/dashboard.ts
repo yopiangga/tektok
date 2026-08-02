@@ -198,7 +198,7 @@ router.get(
         [like]
       ),
       query(
-        `SELECT r.id, r.title, r.type, r.status, u.full_name AS user_name
+        `SELECT r.id, r.title, r.type, u.full_name AS user_name
            FROM reports r JOIN users u ON u.id = r.user_id
           WHERE r.title ILIKE $1 OR r.description ILIKE $1 LIMIT 8`,
         [like]

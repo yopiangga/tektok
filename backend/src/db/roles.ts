@@ -19,7 +19,6 @@ export const ROLE_DEFINITIONS = [
       'personnel.view',
       'map.view',
       'reports.view',
-      'reports.verify',
       'reports.export',
       'streams.view',
       'incidents.create',
