@@ -150,7 +150,8 @@ export default function Dashboard() {
   });
 
   useSocketEvent('report_created', () => invalidate(['reports', 'stats', 'map']));
-  useSocketEvent('report_verified', () => invalidate(['reports']));
+  useSocketEvent('report_updated', () => invalidate(['reports', 'map']));
+  useSocketEvent('report_deleted', () => invalidate(['reports', 'stats', 'map']));
   useSocketEvent('mission_created', () => invalidate(['missions', 'stats', 'personnel', 'map']));
   useSocketEvent('mission_completed', () => invalidate(['missions', 'stats', 'personnel', 'map']));
   useSocketEvent('incident_created', () => invalidate(['incidents', 'stats', 'map']));

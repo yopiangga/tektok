@@ -1,18 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, Download, FileText, Paperclip, X } from 'lucide-react';
-import { useState } from 'react';
-import { api, tokenStore } from '../../lib/api';
-import {
-  REPORT_STATUS_CHIP,
-  REPORT_STATUS_LABEL,
-  REPORT_TYPE_LABEL,
-  cx,
-  formatDateTime,
-  timeAgo,
-} from '../../lib/format';
+import { Download, FileText, Paperclip, Pencil, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { api, apiErrorMessage, tokenStore } from '../../lib/api';
+import { REPORT_TYPE_LABEL, cx, formatDateTime, timeAgo } from '../../lib/format';
 import type { Report } from '../../lib/types';
-import { EmptyState, Modal, PanelLoading, Spinner } from '../ui/Primitives';
 import { useAuth } from '../../store/auth';
+import { EmptyState, Modal, PanelLoading, Spinner } from '../ui/Primitives';
+
+type ReportType = 'information' | 'incident' | 'request_help';
 
 const TYPE_TONE: Record<string, string> = {
   information: 'bg-canvas-sunken text-ink-muted',
@@ -29,21 +24,28 @@ export default function ReportsPanel({
 }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [filter, setFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
+  const [filter, setFilter] = useState<'all' | ReportType>('all');
   const [detail, setDetail] = useState<Report | null>(null);
+  const [editing, setEditing] = useState<Report | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Report | null>(null);
   const [exporting, setExporting] = useState(false);
 
-  const verify = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: 'verified' | 'rejected' }) =>
-      api.post(`/reports/${id}/verify`, { status }),
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: ['reports'] });
+    void queryClient.invalidateQueries({ queryKey: ['map'] });
+    void queryClient.invalidateQueries({ queryKey: ['stats'] });
+  };
+
+  const remove = useMutation({
+    mutationFn: (id: number) => api.delete(`/reports/${id}`),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['reports'] });
+      invalidate();
+      setConfirmDelete(null);
       setDetail(null);
     },
   });
 
-  const rows = reports.filter((r) => filter === 'all' || r.status === filter);
-  const pending = reports.filter((r) => r.status === 'pending').length;
+  const rows = reports.filter((r) => filter === 'all' || r.type === filter);
 
   /** Streams the CSV through fetch so the auth header is preserved. */
   async function exportCsv() {
@@ -71,11 +73,9 @@ export default function ReportsPanel({
         <h2 className="card-title">
           <FileText size={16} className="text-warning" />
           Laporan Lapangan
-          {pending > 0 && (
-            <span className="ml-1 rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning-strong">
-              {pending} menunggu
-            </span>
-          )}
+          <span className="ml-1 rounded-full bg-canvas-sunken px-2 py-0.5 text-[11px] font-medium text-ink-muted">
+            {reports.length}
+          </span>
         </h2>
 
         <div className="flex items-center gap-2">
@@ -83,12 +83,12 @@ export default function ReportsPanel({
             value={filter}
             onChange={(e) => setFilter(e.target.value as typeof filter)}
             className="field h-8 w-auto py-0 text-xs"
-            aria-label="Filter status laporan"
+            aria-label="Filter jenis laporan"
           >
-            <option value="all">Semua</option>
-            <option value="pending">Menunggu</option>
-            <option value="verified">Terverifikasi</option>
-            <option value="rejected">Ditolak</option>
+            <option value="all">Semua jenis</option>
+            <option value="information">Informasi</option>
+            <option value="incident">Insiden</option>
+            <option value="request_help">Permintaan Bantuan</option>
           </select>
 
           {user?.role === 'superuser' && (
@@ -124,13 +124,13 @@ export default function ReportsPanel({
                       <span className={cx('chip', TYPE_TONE[report.type])}>
                         {REPORT_TYPE_LABEL[report.type]}
                       </span>
-                      <span className={cx('chip', REPORT_STATUS_CHIP[report.status])}>
-                        {REPORT_STATUS_LABEL[report.status]}
-                      </span>
                       {report.media.length > 0 && (
                         <span className="chip bg-canvas-sunken text-ink-muted">
                           <Paperclip size={11} /> {report.media.length}
                         </span>
+                      )}
+                      {report.updatedAt && (
+                        <span className="chip bg-canvas-sunken text-ink-muted">diubah</span>
                       )}
                     </span>
 
@@ -144,57 +144,57 @@ export default function ReportsPanel({
                   </span>
                 </button>
 
-                {report.status === 'pending' && (
-                  <div className="flex shrink-0 items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => verify.mutate({ id: report.id, status: 'verified' })}
-                      className="grid h-7 w-7 place-items-center rounded-md text-ink-muted transition-colors hover:bg-success-soft hover:text-success-strong"
-                      title="Verifikasi"
-                    >
-                      <Check size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => verify.mutate({ id: report.id, status: 'rejected' })}
-                      className="grid h-7 w-7 place-items-center rounded-md text-ink-muted transition-colors hover:bg-danger-soft hover:text-danger-strong"
-                      title="Tolak"
-                    >
-                      <X size={15} />
-                    </button>
-                  </div>
-                )}
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setEditing(report)}
+                    className="grid h-7 w-7 place-items-center rounded-md text-ink-muted transition-colors hover:bg-accent-soft hover:text-accent"
+                    title="Ubah laporan"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(report)}
+                    className="grid h-7 w-7 place-items-center rounded-md text-ink-muted transition-colors hover:bg-danger-soft hover:text-danger"
+                    title="Hapus laporan"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
         )}
       </div>
 
+      {/* Detail */}
       <Modal
         open={detail != null}
         onClose={() => setDetail(null)}
         title={detail?.title ?? `Laporan #${detail?.id ?? ''}`}
         subtitle={detail ? `${detail.reporter.fullName} · ${formatDateTime(detail.createdAt)}` : ''}
         footer={
-          detail?.status === 'pending' ? (
+          detail ? (
             <>
               <button
                 type="button"
                 className="btn-secondary btn-md"
-                onClick={() => verify.mutate({ id: detail.id, status: 'rejected' })}
-                disabled={verify.isPending}
+                onClick={() => {
+                  setEditing(detail);
+                  setDetail(null);
+                }}
               >
-                <X size={16} />
-                Tolak
+                <Pencil size={16} />
+                Ubah
               </button>
               <button
                 type="button"
-                className="btn-primary btn-md"
-                onClick={() => verify.mutate({ id: detail.id, status: 'verified' })}
-                disabled={verify.isPending}
+                className="btn-danger btn-md"
+                onClick={() => setConfirmDelete(detail)}
               >
-                {verify.isPending ? <Spinner size={16} /> : <Check size={16} />}
-                Verifikasi
+                <Trash2 size={16} />
+                Hapus
               </button>
             </>
           ) : null
@@ -202,14 +202,9 @@ export default function ReportsPanel({
       >
         {detail && (
           <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              <span className={cx('chip', TYPE_TONE[detail.type])}>
-                {REPORT_TYPE_LABEL[detail.type]}
-              </span>
-              <span className={cx('chip', REPORT_STATUS_CHIP[detail.status])}>
-                {REPORT_STATUS_LABEL[detail.status]}
-              </span>
-            </div>
+            <span className={cx('chip', TYPE_TONE[detail.type])}>
+              {REPORT_TYPE_LABEL[detail.type]}
+            </span>
 
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-soft">
               {detail.description}
@@ -247,13 +242,13 @@ export default function ReportsPanel({
             <dl className="grid grid-cols-2 gap-3 rounded-xl border border-line bg-canvas p-3.5 text-sm">
               <div>
                 <dt className="text-xs text-ink-muted">Unit</dt>
-                <dd className="mt-0.5 font-medium text-ink">
-                  {detail.reporter.unitName ?? '—'}
-                </dd>
+                <dd className="mt-0.5 font-medium text-ink">{detail.reporter.unitName ?? '—'}</dd>
               </div>
               <div>
-                <dt className="text-xs text-ink-muted">Diverifikasi oleh</dt>
-                <dd className="mt-0.5 font-medium text-ink">{detail.verifiedByName ?? '—'}</dd>
+                <dt className="text-xs text-ink-muted">Terakhir diubah</dt>
+                <dd className="mt-0.5 font-medium text-ink">
+                  {detail.updatedAt ? formatDateTime(detail.updatedAt) : 'Belum pernah'}
+                </dd>
               </div>
               <div className="col-span-2">
                 <dt className="text-xs text-ink-muted">Koordinat</dt>
@@ -282,6 +277,137 @@ export default function ReportsPanel({
           </div>
         )}
       </Modal>
+
+      <EditReportModal report={editing} onClose={() => setEditing(null)} onSaved={invalidate} />
+
+      <Modal
+        open={confirmDelete != null}
+        onClose={() => setConfirmDelete(null)}
+        title="Hapus laporan?"
+        subtitle={confirmDelete ? `Laporan #${confirmDelete.id} · ${confirmDelete.reporter.fullName}` : ''}
+        footer={
+          <>
+            <button
+              type="button"
+              className="btn-secondary btn-md"
+              onClick={() => setConfirmDelete(null)}
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              className="btn-danger btn-md"
+              onClick={() => confirmDelete && remove.mutate(confirmDelete.id)}
+              disabled={remove.isPending}
+            >
+              {remove.isPending ? <Spinner size={16} /> : <Trash2 size={16} />}
+              Hapus
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm text-ink-soft">
+          Laporan ini{' '}
+          {confirmDelete?.media.length
+            ? `beserta ${confirmDelete.media.length} lampirannya `
+            : ''}
+          akan dihapus permanen. Tindakan ini tidak dapat dibatalkan dan tercatat di audit log.
+        </p>
+      </Modal>
     </section>
+  );
+}
+
+/* --------------------------------------------------------------- edit ----- */
+
+function EditReportModal({
+  report,
+  onClose,
+  onSaved,
+}: {
+  report: Report | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [type, setType] = useState<ReportType>('information');
+  const [description, setDescription] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!report) return;
+    setType(report.type);
+    setDescription(report.description);
+    setError(null);
+  }, [report]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      api.patch(`/reports/${report!.id}`, { type, description: description.trim() }),
+    onSuccess: () => {
+      onSaved();
+      onClose();
+    },
+    onError: (err) => setError(apiErrorMessage(err, 'Gagal menyimpan perubahan')),
+  });
+
+  return (
+    <Modal
+      open={report != null}
+      onClose={onClose}
+      title="Ubah Laporan"
+      subtitle={report ? `Laporan #${report.id} · ${report.reporter.fullName}` : ''}
+      footer={
+        <>
+          <button type="button" className="btn-secondary btn-md" onClick={onClose}>
+            Batal
+          </button>
+          <button
+            type="button"
+            className="btn-primary btn-md"
+            onClick={() => save.mutate()}
+            disabled={!description.trim() || save.isPending}
+          >
+            {save.isPending ? <Spinner size={16} /> : <Pencil size={16} />}
+            Simpan
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <label className="label" htmlFor="edit-report-type">
+            Jenis laporan
+          </label>
+          <select
+            id="edit-report-type"
+            className="field"
+            value={type}
+            onChange={(e) => setType(e.target.value as ReportType)}
+          >
+            <option value="information">Informasi</option>
+            <option value="incident">Insiden</option>
+            <option value="request_help">Permintaan Bantuan</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="label" htmlFor="edit-report-description">
+            Deskripsi
+          </label>
+          <textarea
+            id="edit-report-description"
+            className="field min-h-[140px] resize-y"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
+
+        {error && (
+          <p className="rounded-lg border border-danger/25 bg-danger-soft px-3 py-2 text-sm text-danger-strong">
+            {error}
+          </p>
+        )}
+      </div>
+    </Modal>
   );
 }

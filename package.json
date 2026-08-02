@@ -19,8 +19,9 @@
     "db:setup:demo": "npm --workspace backend run db:setup:demo",
     "db:seed:demo": "npm --workspace backend run db:seed:demo",
     "simulate": "npm --workspace backend run simulate",
-    "typecheck": "npm --workspace backend run typecheck && npm --workspace frontend run typecheck"
-  },  
+    "typecheck": "npm --workspace backend run typecheck && npm --workspace frontend run typecheck",
+    "db:patch": "npm --workspace backend run db:patch"
+  },
   "devDependencies": {
     "concurrently": "^9.1.2"
   }

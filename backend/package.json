@@ -14,7 +14,8 @@
     "db:seed:demo": "tsx src/db/seed-demo.ts",
     "db:setup": "npm run db:migrate && npm run db:seed",
     "db:setup:demo": "npm run db:migrate && npm run db:seed:demo",
-    "simulate": "tsx src/tools/simulate.ts"
+    "simulate": "tsx src/tools/simulate.ts",
+    "db:patch": "tsx src/db/patch.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

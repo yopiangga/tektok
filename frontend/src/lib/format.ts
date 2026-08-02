@@ -107,18 +107,6 @@ export const REPORT_TYPE_LABEL: Record<string, string> = {
   request_help: 'Permintaan Bantuan',
 };
 
-export const REPORT_STATUS_LABEL: Record<string, string> = {
-  pending: 'Menunggu',
-  verified: 'Terverifikasi',
-  rejected: 'Ditolak',
-};
-
-export const REPORT_STATUS_CHIP: Record<string, string> = {
-  pending: 'bg-warning-soft text-warning-strong',
-  verified: 'bg-success-soft text-success-strong',
-  rejected: 'bg-danger-soft text-danger-strong',
-};
-
 export function batteryTone(level: number | null | undefined): string {
   if (level == null) return 'text-ink-faint';
   if (level <= 20) return 'text-danger';

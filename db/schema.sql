@@ -117,15 +117,14 @@ CREATE TABLE reports (
   description  TEXT NOT NULL,
   lat          DOUBLE PRECISION,
   lng          DOUBLE PRECISION,
-  status       TEXT NOT NULL DEFAULT 'pending',     -- pending | verified | rejected
-  verified_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
-  verified_at  TIMESTAMPTZ,
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  -- Reports are records, not submissions awaiting approval: there is no
+  -- verification step, only an edit history via updated_at.
+  updated_at   TIMESTAMPTZ
 );
 
 CREATE INDEX idx_reports_created ON reports(created_at DESC);
 CREATE INDEX idx_reports_user    ON reports(user_id);
-CREATE INDEX idx_reports_status  ON reports(status);
 
 -- ---------------------------------------------------------------------------
 -- Report media

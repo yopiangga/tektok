@@ -1,17 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Camera, CheckCircle2, MapPin, Send, Trash2, Video } from 'lucide-react';
+import { Camera, CheckCircle2, MapPin, Pencil, Send, Trash2, Video } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Spinner } from '../../components/ui/Primitives';
+import { Modal, Spinner } from '../../components/ui/Primitives';
 import type { GpsState } from '../../hooks/useGpsTracking';
 import { api, apiErrorMessage } from '../../lib/api';
-import {
-  REPORT_STATUS_CHIP,
-  REPORT_STATUS_LABEL,
-  REPORT_TYPE_LABEL,
-  cx,
-  timeAgo,
-} from '../../lib/format';
+import { REPORT_TYPE_LABEL, cx, timeAgo } from '../../lib/format';
 import type { Report } from '../../lib/types';
 
 type ReportType = 'information' | 'incident' | 'request_help';
@@ -46,6 +40,9 @@ export default function FieldReport() {
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [editing, setEditing] = useState<Report | null>(null);
+  const [deleting, setDeleting] = useState<Report | null>(null);
+  const [editText, setEditText] = useState('');
 
   const history = useQuery({
     queryKey: ['my-reports'],
@@ -80,6 +77,23 @@ export default function FieldReport() {
       void queryClient.invalidateQueries({ queryKey: ['my-reports'] });
     },
     onError: (err) => setError(apiErrorMessage(err, 'Gagal mengirim laporan')),
+  });
+
+  const saveEdit = useMutation({
+    mutationFn: () =>
+      api.patch(`/reports/${editing!.id}`, { description: editText.trim() }),
+    onSuccess: () => {
+      setEditing(null);
+      void queryClient.invalidateQueries({ queryKey: ['my-reports'] });
+    },
+  });
+
+  const removeReport = useMutation({
+    mutationFn: (id: number) => api.delete(`/reports/${id}`),
+    onSuccess: () => {
+      setDeleting(null);
+      void queryClient.invalidateQueries({ queryKey: ['my-reports'] });
+    },
   });
 
   return (
@@ -248,21 +262,107 @@ export default function FieldReport() {
           <ul className="divide-y divide-night-line">
             {history.data!.map((report) => (
               <li key={report.id} className="px-4 py-3">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-white/80">
-                    {REPORT_TYPE_LABEL[report.type]}
+                <div className="flex items-start justify-between gap-2">
+                  <span className="min-w-0 flex-1">
+                    <span className="text-xs font-semibold text-white/80">
+                      {REPORT_TYPE_LABEL[report.type]}
+                      {report.updatedAt && <span className="ml-2 text-white/40">· diubah</span>}
+                    </span>
+                    <p className="mt-1.5 line-clamp-2 text-sm text-white/80">
+                      {report.description}
+                    </p>
+                    <p className="mt-1 text-[11px] text-white/40">
+                      {timeAgo(report.createdAt)} lalu
+                    </p>
                   </span>
-                  <span className={cx('chip', REPORT_STATUS_CHIP[report.status])}>
-                    {REPORT_STATUS_LABEL[report.status]}
+
+                  <span className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditing(report);
+                        setEditText(report.description);
+                      }}
+                      className="grid h-8 w-8 place-items-center rounded-md text-white/55 transition-colors hover:bg-white/10 hover:text-white"
+                      aria-label="Ubah laporan"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleting(report)}
+                      className="grid h-8 w-8 place-items-center rounded-md text-white/55 transition-colors hover:bg-danger/20 hover:text-danger"
+                      aria-label="Hapus laporan"
+                    >
+                      <Trash2 size={15} />
+                    </button>
                   </span>
                 </div>
-                <p className="mt-1.5 line-clamp-2 text-sm text-white/80">{report.description}</p>
-                <p className="mt-1 text-[11px] text-white/40">{timeAgo(report.createdAt)} lalu</p>
               </li>
             ))}
           </ul>
         </section>
       )}
+
+      <Modal
+        open={editing != null}
+        onClose={() => setEditing(null)}
+        title="Ubah Laporan"
+        subtitle={editing ? `Laporan #${editing.id}` : ''}
+        footer={
+          <>
+            <button type="button" className="btn-secondary btn-md" onClick={() => setEditing(null)}>
+              Batal
+            </button>
+            <button
+              type="button"
+              className="btn-primary btn-md"
+              onClick={() => saveEdit.mutate()}
+              disabled={!editText.trim() || saveEdit.isPending}
+            >
+              {saveEdit.isPending ? <Spinner size={16} /> : <Pencil size={16} />}
+              Simpan
+            </button>
+          </>
+        }
+      >
+        <label className="label" htmlFor="field-edit-desc">
+          Deskripsi
+        </label>
+        <textarea
+          id="field-edit-desc"
+          className="field min-h-[140px] resize-y text-base"
+          value={editText}
+          onChange={(e) => setEditText(e.target.value)}
+        />
+      </Modal>
+
+      <Modal
+        open={deleting != null}
+        onClose={() => setDeleting(null)}
+        title="Hapus laporan?"
+        subtitle={deleting ? `Laporan #${deleting.id}` : ''}
+        footer={
+          <>
+            <button type="button" className="btn-secondary btn-md" onClick={() => setDeleting(null)}>
+              Batal
+            </button>
+            <button
+              type="button"
+              className="btn-danger btn-md"
+              onClick={() => deleting && removeReport.mutate(deleting.id)}
+              disabled={removeReport.isPending}
+            >
+              {removeReport.isPending ? <Spinner size={16} /> : <Trash2 size={16} />}
+              Hapus
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm text-ink-soft">
+          Laporan beserta lampirannya akan dihapus permanen.
+        </p>
+      </Modal>
     </div>
   );
 }

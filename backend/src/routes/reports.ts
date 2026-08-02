@@ -6,7 +6,7 @@ import { requireAuth, requireCommand } from '../middleware/auth';
 import { isFieldRole } from '../types';
 import { asyncHandler } from '../middleware/error';
 import { emitToCommand } from '../realtime/io';
-import { logActivity } from '../services/activity';
+import { logActivity, logSystem } from '../services/activity';
 import { notify } from '../services/notify';
 import { broadcastStats } from '../services/stats';
 import { storeFile } from '../services/storage';
@@ -24,11 +24,10 @@ const upload = multer({
 });
 
 const REPORT_SELECT = `
-  SELECT r.id, r.type, r.title, r.description, r.lat, r.lng, r.status,
-         r.created_at, r.verified_at,
+  SELECT r.id, r.type, r.title, r.description, r.lat, r.lng,
+         r.created_at, r.updated_at,
          u.id AS user_id, u.full_name AS user_name, u.badge_number,
          un.name AS unit_name,
-         v.full_name AS verified_by_name,
          COALESCE(
            (SELECT json_agg(json_build_object('id', rm.id, 'kind', rm.kind, 'url', rm.url))
               FROM report_media rm WHERE rm.report_id = r.id),
@@ -37,7 +36,6 @@ const REPORT_SELECT = `
     FROM reports r
     JOIN users u ON u.id = r.user_id
     LEFT JOIN units un ON un.id = u.unit_id
-    LEFT JOIN users v ON v.id = r.verified_by
 `;
 
 interface ReportRow {
@@ -47,14 +45,12 @@ interface ReportRow {
   description: string;
   lat: number | null;
   lng: number | null;
-  status: string;
   created_at: string;
-  verified_at: string | null;
+  updated_at: string | null;
   user_id: number;
   user_name: string;
   badge_number: string | null;
   unit_name: string | null;
-  verified_by_name: string | null;
   media: Array<{ id: number; kind: string; url: string }>;
 }
 
@@ -65,10 +61,8 @@ const mapReport = (r: ReportRow) => ({
   description: r.description,
   lat: r.lat,
   lng: r.lng,
-  status: r.status,
   createdAt: r.created_at,
-  verifiedAt: r.verified_at,
-  verifiedByName: r.verified_by_name,
+  updatedAt: r.updated_at,
   reporter: {
     id: r.user_id,
     fullName: r.user_name,
@@ -79,7 +73,6 @@ const mapReport = (r: ReportRow) => ({
 });
 
 const listSchema = z.object({
-  status: z.enum(['pending', 'verified', 'rejected']).optional(),
   type: z.enum(['information', 'incident', 'request_help']).optional(),
   mine: z.enum(['true', 'false']).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
@@ -96,10 +89,6 @@ router.get(
     if (isFieldRole(req.user!.role) || filters.mine === 'true') {
       params.push(req.user!.id);
       clauses.push(`r.user_id = $${params.length}`);
-    }
-    if (filters.status) {
-      params.push(filters.status);
-      clauses.push(`r.status = $${params.length}`);
     }
     if (filters.type) {
       params.push(filters.type);
@@ -245,37 +234,98 @@ router.post(
   })
 );
 
-const verifySchema = z.object({ status: z.enum(['verified', 'rejected']) });
+const updateSchema = z.object({
+  type: z.enum(['information', 'incident', 'request_help']).optional(),
+  title: z.string().max(200).nullable().optional(),
+  description: z.string().min(1, 'Deskripsi wajib diisi').max(4000).optional(),
+});
 
-router.post(
-  '/:id/verify',
-  requireCommand,
+type ModifyGuard = { ok: true; ownerId: number } | { ok: false; status: 404 | 403; error: string };
+
+/** Only the author or a superuser may touch a report. */
+async function assertCanModify(
+  reportId: number,
+  req: import('express').Request
+): Promise<ModifyGuard> {
+  const row = await queryOne<{ user_id: number }>('SELECT user_id FROM reports WHERE id = $1', [
+    reportId,
+  ]);
+  if (!row) return { ok: false, status: 404, error: 'Laporan tidak ditemukan' };
+  if (req.user!.role !== 'superuser' && row.user_id !== req.user!.id) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'Hanya pembuat laporan atau super user yang dapat mengubahnya',
+    };
+  }
+  return { ok: true, ownerId: row.user_id };
+}
+
+router.patch(
+  '/:id',
   asyncHandler(async (req, res) => {
     const id = z.coerce.number().int().positive().parse(req.params.id);
-    const { status } = verifySchema.parse(req.body);
-    const user = req.user!;
+    const body = updateSchema.parse(req.body);
 
-    const updated = await queryOne<{ id: number; user_id: number }>(
-      `UPDATE reports SET status = $2, verified_by = $3, verified_at = NOW()
-        WHERE id = $1 RETURNING id, user_id`,
-      [id, status, user.id]
+    const guard = await assertCanModify(id, req);
+    if (!guard.ok) return res.status(guard.status).json({ error: guard.error });
+
+    const sets: string[] = [];
+    const params: unknown[] = [id];
+    const push = (column: string, value: unknown) => {
+      params.push(value);
+      sets.push(`${column} = $${params.length}`);
+    };
+
+    if (body.type !== undefined) push('type', body.type);
+    if (body.title !== undefined) push('title', body.title);
+    if (body.description !== undefined) push('description', body.description);
+    if (!sets.length) return res.status(400).json({ error: 'Tidak ada perubahan' });
+
+    await queryOne(
+      `UPDATE reports SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $1 RETURNING id`,
+      params
     );
-    if (!updated) return res.status(404).json({ error: 'Laporan tidak ditemukan' });
 
     const full = await queryOne<ReportRow>(`${REPORT_SELECT} WHERE r.id = $1`, [id]);
-    emitToCommand('report_verified', mapReport(full!));
+    const mapped = mapReport(full!);
 
-    await notify({
-      userId: updated.user_id,
-      type: 'report_verified',
-      title: status === 'verified' ? 'Laporan Diverifikasi' : 'Laporan Ditolak',
-      body: `Laporan #${id} telah ${status === 'verified' ? 'diverifikasi' : 'ditolak'} oleh ${user.fullName}.`,
-      severity: status === 'verified' ? 'success' : 'warning',
-      refType: 'report',
-      refId: id,
+    emitToCommand('report_updated', mapped);
+    await logSystem({
+      userId: req.user!.id,
+      action: 'report.update',
+      entity: 'report',
+      entityId: id,
+      ip: req.ip,
     });
 
-    res.json({ report: mapReport(full!) });
+    res.json({ report: mapped });
+  })
+);
+
+router.delete(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    const id = z.coerce.number().int().positive().parse(req.params.id);
+
+    const guard = await assertCanModify(id, req);
+    if (!guard.ok) return res.status(guard.status).json({ error: guard.error });
+
+    // report_media cascades from reports, so attachments go with it.
+    await queryOne('DELETE FROM reports WHERE id = $1 RETURNING id', [id]);
+
+    emitToCommand('report_deleted', { id });
+    await logSystem({
+      userId: req.user!.id,
+      action: 'report.delete',
+      entity: 'report',
+      entityId: id,
+      ip: req.ip,
+      meta: { ownerId: guard.ownerId },
+    });
+    await broadcastStats();
+
+    res.json({ ok: true, deleted: id });
   })
 );
 
@@ -287,11 +337,11 @@ router.get(
     const rows = await query<ReportRow>(`${REPORT_SELECT} ORDER BY r.created_at DESC LIMIT 5000`);
 
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const header = ['id', 'created_at', 'type', 'status', 'reporter', 'unit', 'lat', 'lng', 'description'];
+    const header = ['id', 'created_at', 'type', 'reporter', 'unit', 'lat', 'lng', 'description'];
     const lines = [
       header.join(','),
       ...rows.map((r) =>
-        [r.id, r.created_at, r.type, r.status, r.user_name, r.unit_name, r.lat, r.lng, r.description]
+        [r.id, r.created_at, r.type, r.user_name, r.unit_name, r.lat, r.lng, r.description]
           .map(esc)
           .join(',')
       ),

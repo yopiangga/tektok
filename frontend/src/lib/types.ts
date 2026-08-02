@@ -61,10 +61,8 @@ export interface Report {
   description: string;
   lat: number | null;
   lng: number | null;
-  status: 'pending' | 'verified' | 'rejected';
   createdAt: string;
-  verifiedAt: string | null;
-  verifiedByName: string | null;
+  updatedAt: string | null;
   reporter: { id: number; fullName: string; badgeNumber: string | null; unitName: string | null };
   media: Array<{ id: number; kind: 'photo' | 'video'; url: string }>;
 }
@@ -179,7 +177,6 @@ export interface MapData {
     id: number;
     type: string;
     title: string | null;
-    status: string;
     lat: number;
     lng: number;
     userName: string;

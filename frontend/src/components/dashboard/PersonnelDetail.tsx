@@ -11,8 +11,6 @@ import {
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import {
-  REPORT_STATUS_CHIP,
-  REPORT_STATUS_LABEL,
   REPORT_TYPE_LABEL,
   STATUS_CHIP,
   STATUS_COLOR,
@@ -27,7 +25,7 @@ import { Avatar, Modal, PanelLoading, StatusDot } from '../ui/Primitives';
 
 interface DetailResponse {
   personnel: Personnel;
-  recentReports: Array<Pick<Report, 'id' | 'status' | 'description' | 'createdAt'> & { type: string }>;
+  recentReports: Array<Pick<Report, 'id' | 'description' | 'createdAt'> & { type: string }>;
   track: Array<{ lat: number; lng: number; recordedAt: string }>;
 }
 
@@ -160,14 +158,9 @@ export default function PersonnelDetail({
               <ul className="space-y-2">
                 {data.recentReports.map((report) => (
                   <li key={report.id} className="rounded-xl border border-line bg-canvas p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold text-ink-soft">
-                        {REPORT_TYPE_LABEL[report.type] ?? report.type}
-                      </span>
-                      <span className={cx('chip', REPORT_STATUS_CHIP[report.status])}>
-                        {REPORT_STATUS_LABEL[report.status]}
-                      </span>
-                    </div>
+                    <span className="text-xs font-semibold text-ink-soft">
+                      {REPORT_TYPE_LABEL[report.type] ?? report.type}
+                    </span>
                     <p className="mt-1.5 line-clamp-2 text-sm text-ink-soft">{report.description}</p>
                     <p className="mt-1 text-[11px] text-ink-faint">
                       {formatDateTime(report.createdAt)}

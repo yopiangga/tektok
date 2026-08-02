@@ -114,7 +114,7 @@ router.get(
     );
 
     const reports = await query(
-      `SELECT r.id, r.type, r.title, r.status, r.lat, r.lng, r.created_at, u.full_name AS user_name
+      `SELECT r.id, r.type, r.title, r.lat, r.lng, r.created_at, u.full_name AS user_name
          FROM reports r JOIN users u ON u.id = r.user_id
         WHERE r.lat IS NOT NULL AND r.lng IS NOT NULL
           AND r.created_at >= NOW() - INTERVAL '24 hours'
@@ -153,7 +153,6 @@ router.get(
         id: r.id,
         type: r.type,
         title: r.title,
-        status: r.status,
         lat: r.lat,
         lng: r.lng,
         userName: r.user_name,
@@ -227,7 +226,7 @@ router.get(
         reports: reports.map((r) => ({
           id: r.id,
           label: r.title ?? `Laporan #${r.id}`,
-          sub: `${r.user_name} · ${r.status}`,
+          sub: r.user_name,
         })),
       },
     });
