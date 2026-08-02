@@ -1,319 +1,201 @@
-# Deploy TEKTOK ke VPS
+# TEKTOK — Deployment
+
+**Status: terpasang dan berjalan.**
 
 | | |
 |---|---|
-| Server | `43.106.5.212` |
-| Domain | `tektok.kameranusantara.id` |
-| Repo | `https://github.com/yopiangga/tektok` |
-
-DNS sudah benar — `tektok.kameranusantara.id` me-resolve ke `43.106.5.212`.
-
-Semua perintah di bawah dijalankan **di VPS** kecuali Langkah 1.
-
----
-
-## Kenapa HTTPS wajib, bukan opsional
-
-Selama ini aplikasi diakses lewat HTTP di jaringan lokal, dan itu membatasi banyak hal.
-Browser hanya mengizinkan kamera, mikrofon, share screen, dan GPS pada *secure context*
-(HTTPS atau `localhost`). Dengan domain + TLS, keterbatasan itu hilang: personel bisa
-mengaktifkan GPS dan siaran dari HP mana pun, drone dan share-screen bisa dari laptop
-mana pun.
-
-Konsekuensinya satu hal harus ditangani: di halaman HTTPS, koneksi `ws://` polos ke
-LiveKit diblokir browser sebagai *mixed content*. Karena itu signalling LiveKit
-diarahkan lewat Nginx sebagai `wss://tektok.kameranusantara.id/livekit`, bukan
-`ws://43.106.5.212:7880`. Media WebRTC-nya sendiri tetap lewat UDP langsung ke IP
-publik — itu tidak kena aturan mixed content, tapi **port UDP-nya harus dibuka di
-firewall** (lihat Langkah 3).
+| Web | https://tektok.kameranusantara.id |
+| API | https://api-tektok.kameranusantara.id |
+| Server | `43.106.5.212` (Ubuntu 22.04, user `labadmin`, alias SSH `lab88`) |
+| Direktori | `/opt/tektok` |
+| Repo | https://github.com/yopiangga/tektok |
+| Login awal | `admin` / `123456` |
 
 ---
 
-## Langkah 1 — Push kode ke GitHub (dari komputer lokal)
+## Arsitektur yang terpasang
 
-```bash
-cd "/Users/yopiangga/Documents/Riset/91 STI/v1"
+VPS ini **tidak kosong**: Apache sudah memegang port 80/443 untuk
+`imt.mogiro.site` (aplikasi Express di port 5001), ditambah container latihan
+juice-shop dan DVWA di 8081/8082. TEKTOK karena itu dipasang **di belakang
+Apache**, bukan menggantikannya.
 
-git add .gitignore DEPLOY.md docker-compose.prod.yml livekit.prod.yaml \
-        nginx/nginx.prod.conf nginx/bootstrap.conf \
-        scripts/init-ssl.sh .env.production.example \
-        backend/src/db/migrate.ts
-git commit -m "Tambah konfigurasi deployment produksi"
-git push origin main
+```
+                    ┌─ tektok.kameranusantara.id ──┐
+Internet ──► Apache ┤                              ├─► 127.0.0.1:8080
+             (TLS)  └─ api-tektok.kameranusantara ─┘         │
+                                                             ▼
+                                                  Nginx TEKTOK (container)
+                                                   ├── /              → web (SPA)
+                                                   ├── /api/          → api:4000
+                                                   ├── /socket.io/    → api:4000
+                                                   ├── /livekit/      → livekit:7880
+                                                   ├── /media/        → minio:9000
+                                                   └── /uploads/      → api:4000
+
+Media WebRTC TIDAK lewat Apache: UDP 7882 / TCP 7881 langsung ke 43.106.5.212
 ```
 
-`.env.production` dan `certbot/` sudah masuk `.gitignore` — rahasia dan sertifikat
-tidak akan ikut ter-push.
+Kedua domain menunjuk ke Nginx internal yang **sama**. Pemilahan dilakukan Nginx
+berdasarkan path. Ini disengaja: backend mengembalikan URL lampiran sebagai path
+relatif `/media/<key>`, yang di halaman web diselesaikan menjadi
+`https://tektok.kameranusantara.id/media/<key>` — jadi domain web pun harus bisa
+melayani `/media` dan `/uploads`, bukan hanya SPA.
+
+Alamat API dibakar ke dalam bundel saat build (`VITE_API_URL`, `VITE_SOCKET_URL`),
+karena Vite mengganti `import.meta.env.VITE_*` pada waktu build, bukan runtime.
+**Mengubah domain API berarti harus build ulang image `web`.**
+
+### Berkas yang mengatur ini
+
+| Berkas | Peran |
+|---|---|
+| `docker-compose.prod.yml` | Stack dasar |
+| `docker-compose.behind-proxy.yml` | Override: ikat ke `127.0.0.1:8080`, matikan certbot container, kirim build arg VITE |
+| `nginx/nginx.behind-proxy.conf` | Nginx internal, HTTP polos, percaya `X-Forwarded-*` |
+| `apache/tektok-proxy.conf` | Aturan proxy bersama (termasuk tunnel WebSocket) |
+| `apache/tektok-web.conf`, `apache/tektok-api.conf` | Vhost per domain |
+| `livekit.prod.yaml` | UDP mux 7882, ICE-TCP 7881, `node_ip` publik |
+
+`nginx/nginx.prod.conf`, `nginx/bootstrap.conf`, dan `scripts/init-ssl.sh`
+**tidak dipakai di sini**. Semuanya untuk VPS kosong yang port 80/443-nya bebas;
+disimpan untuk kemungkinan itu.
 
 ---
 
-## Langkah 2 — Siapkan VPS
+## Perintah harian
 
-SSH masuk, lalu pasang Docker:
-
-```bash
-ssh root@43.106.5.212
-
-apt update && apt upgrade -y
-curl -fsSL https://get.docker.com | sh
-docker compose version     # harus muncul v2.x
-```
-
-Naikkan buffer UDP kernel. LiveKit memperingatkan buffer default (425 KB) terlalu
-kecil untuk produksi; pada beberapa aliran bersamaan ini menyebabkan paket video
-di-drop dan gambar patah-patah:
+Semua dijalankan di `/opt/tektok`. Pintasan:
 
 ```bash
-cat >> /etc/sysctl.conf <<'EOF'
-net.core.rmem_max=16777216
-net.core.wmem_max=16777216
-EOF
-sysctl -p
+ssh lab88
+cd /opt/tektok
+CP="docker compose -f docker-compose.prod.yml -f docker-compose.behind-proxy.yml --env-file .env.production"
 ```
 
----
-
-## Langkah 3 — Firewall
-
-Port yang **harus** terbuka:
-
-| Port | Protokol | Untuk |
-|---|---|---|
-| 22 | TCP | SSH |
-| 80 | TCP | Redirect + perpanjangan sertifikat Let's Encrypt |
-| 443 | TCP | Aplikasi + signalling LiveKit (wss) |
-| 7881 | TCP | Fallback ICE-TCP untuk jaringan yang memblokir UDP |
-| 7882 | UDP | **Media WebRTC.** Tanpa ini signalling sukses tapi video tidak pernah muncul |
-
-```bash
-ufw allow 22/tcp
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw allow 7881/tcp
-ufw allow 7882/udp
-ufw enable
-ufw status
-```
-
-> Kalau penyedia VPS punya security group / firewall sendiri di panel mereka
-> (Alibaba, AWS, dsb.), aturan yang sama harus dibuat **di sana juga**. `ufw`
-> saja tidak cukup.
-
----
-
-## Langkah 4 — Ambil kode
-
-```bash
-mkdir -p /opt && cd /opt
-git clone https://github.com/yopiangga/tektok.git tocs
-cd /opt/tocs
-```
-
----
-
-## Langkah 5 — Isi environment
-
-```bash
-cp .env.production.example .env.production
-nano .env.production
-```
-
-Isi keempat nilai yang bertanda `GENERATE`. Jalankan tiap perintah ini dan tempel
-hasilnya:
-
-```bash
-openssl rand -hex 24      # POSTGRES_PASSWORD
-openssl rand -base64 48   # JWT_SECRET
-openssl rand -hex 24      # MINIO_SECRET_KEY
-openssl rand -hex 32      # LIVEKIT_API_SECRET
-```
-
-Kosongkan `ADMIN_PASSWORD` bila ingin password acak yang dicetak sekali saat seeding.
-
-```bash
-chmod 600 .env.production
-```
-
----
-
-## Langkah 6 — Terbitkan sertifikat TLS
-
-Harus dilakukan **sebelum** stack dinyalakan: Nginx menolak start kalau berkas
-sertifikat yang dirujuknya belum ada.
-
-```bash
-./scripts/init-ssl.sh
-```
-
-Skrip ini menjalankan Nginx sementara di port 80, membuktikan
-`/.well-known/acme-challenge/` benar-benar terjangkau dari internet, baru kemudian
-meminta sertifikat. Kalau gagal, penyebabnya hampir selalu port 80 tertutup.
-
-Untuk uji coba tanpa memakai kuota Let's Encrypt (batas 5 kegagalan/jam/domain):
-
-```bash
-./scripts/init-ssl.sh --staging   # sertifikat tidak dipercaya browser, hanya untuk tes
-```
-
-Kalau sudah lolos staging, hapus hasilnya lalu terbitkan yang asli:
-
-```bash
-rm -rf certbot/conf && ./scripts/init-ssl.sh
-```
-
----
-
-## Langkah 7 — Nyalakan stack
-
-```bash
-docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
-docker compose -f docker-compose.prod.yml --env-file .env.production ps
-```
-
-Build pertama memakan beberapa menit. Semua service harus `Up`, dan
-`postgres`/`minio`/`api` harus `(healthy)`.
-
----
-
-## Langkah 8 — Siapkan database
-
-```bash
-cd /opt/tocs
-CP="docker compose -f docker-compose.prod.yml --env-file .env.production"
-
-$CP exec api node dist/db/migrate.js
-$CP exec api node dist/db/seed.js
-```
-
-> `migrate.js` **hanya dijalankan sekali, saat instalasi pertama.** `schema.sql`
-> diawali `DROP TABLE ... CASCADE`, jadi menjalankannya lagi nanti akan menghapus
-> seluruh data. Lihat bagian *Memperbarui aplikasi*.
-
-`seed.js` membuat satu akun super user (`admin`) dan **mencetak passwordnya sekali**
-kalau `ADMIN_PASSWORD` dikosongkan. Catat sekarang juga.
-
-Jangan jalankan `seed-demo.js` di produksi — skrip itu memang menolak berjalan saat
-`NODE_ENV=production` kecuali dipaksa.
-
----
-
-## Langkah 9 — Verifikasi
-
-```bash
-curl -s https://tektok.kameranusantara.id/health
-# {"status":"ok","uptime":...}
-```
-
-Lalu buka `https://tektok.kameranusantara.id` di browser dan periksa:
-
-- [ ] Gembok TLS hijau, tidak ada peringatan sertifikat
-- [ ] Login sebagai `admin` berhasil
-- [ ] Buat satu personel di **Pengaturan Sistem**, login dari HP, GPS terbaca
-      (inilah yang tidak mungkin lewat HTTP)
-- [ ] Personel mulai siaran → tile-nya muncul **dan videonya jalan** di halaman
-      Siaran Langsung
-- [ ] Kirim laporan berlampiran foto → foto tampil di dashboard
-
-Ceklis nomor 4 adalah yang paling penting. Kalau tile muncul dengan layar hitam,
-itu tandanya signalling jalan tapi media tidak — lihat bagian Troubleshooting.
-
----
+| Tujuan | Perintah |
+|---|---|
+| Status | `$CP ps` |
+| Log API | `$CP logs -f api` |
+| Log LiveKit | `$CP logs -f livekit` |
+| Restart satu service | `$CP restart api` |
+| Matikan semua | `$CP down` |
+| Nyalakan lagi | `$CP up -d` |
 
 ## Memperbarui aplikasi
 
 ```bash
-cd /opt/tocs
+ssh lab88 && cd /opt/tektok
 git pull
-docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+CP="docker compose -f docker-compose.prod.yml -f docker-compose.behind-proxy.yml --env-file .env.production"
+$CP build api web        # satu per satu: RAM server hanya 3,4 GB
+$CP up -d
 ```
 
-Data (database, media, unggahan) tersimpan di Docker volume dan tidak terpengaruh.
-
-> **Jangan pernah menjalankan ulang `migrate.js` di server yang sudah berisi data.**
-> `schema.sql` diawali `DROP TABLE ... CASCADE` — menjalankannya lagi akan menghapus
-> seluruh personel, laporan, dan riwayat. Skrip itu sekarang menolak berjalan di
-> `NODE_ENV=production` bila tabel sudah ada, tapi jangan bergantung pada penjaga itu.
->
-> Untuk perubahan skema pada server yang sudah jalan, gunakan skrip patch yang
-> idempoten:
+> **Jangan menjalankan `migrate.js` lagi.** `db/schema.sql` diawali
+> `DROP TABLE ... CASCADE`, jadi mengulangnya menghapus seluruh personel,
+> laporan, dan riwayat. Skrip itu sudah menolak berjalan bila tabel sudah ada
+> (`NODE_ENV=production`), dan penolakan itu sudah diuji langsung di server ini.
+> Untuk perubahan skema gunakan yang idempoten:
 >
 > ```bash
-> docker compose -f docker-compose.prod.yml --env-file .env.production \
->   exec api node dist/db/patch.js
+> $CP exec api node dist/db/patch.js
 > ```
+
+## Password
+
+Seluruh akun memakai `123456`. Untuk menyetel ulang semuanya sekaligus:
+
+```bash
+$CP exec -e NEW_PASSWORD=123456 -e ALLOW_WEAK_PASSWORD_RESET=true api \
+   node dist/tools/reset-passwords.js
+```
+
+`ALLOW_WEAK_PASSWORD_RESET` wajib karena di produksi ini menyamakan password
+super user dengan password seluruh personel.
 
 ## Backup
 
 ```bash
-cd /opt/tocs
-CP="docker compose -f docker-compose.prod.yml --env-file .env.production"
+ssh lab88 && cd /opt/tektok
+CP="docker compose -f docker-compose.prod.yml -f docker-compose.behind-proxy.yml --env-file .env.production"
 
-# Database
-$CP exec -T postgres pg_dump -U tocs tocs | gzip > ~/tocs-$(date +%F).sql.gz
+$CP exec -T postgres pg_dump -U tocs tocs | gzip > ~/tektok-$(date +%F).sql.gz
 
-# Media
 docker run --rm -v tocs_miniodata:/data -v ~:/backup alpine \
-  tar czf /backup/tocs-media-$(date +%F).tar.gz -C /data .
+  tar czf /backup/tektok-media-$(date +%F).tar.gz -C /data .
+```
+
+Simpan juga `/opt/tektok/.env.production` — berisi `JWT_SECRET`, password
+Postgres, dan kunci LiveKit yang dibuat acak saat deploy dan tidak ada
+salinannya di mana pun.
+
+---
+
+## Yang sudah dikonfigurasi di server
+
+- **Swap 2 GB** (`/swapfile`, permanen di `/etc/fstab`). Server hanya punya RAM
+  3,4 GB tanpa swap; build frontend berisiko kehabisan memori tanpa ini.
+- **Modul Apache** `proxy_wstunnel` dan `headers` diaktifkan. Keduanya belum
+  aktif sebelumnya — tanpa `proxy_wstunnel`, Socket.IO dan signalling LiveKit
+  gagal upgrade dan streaming tidak pernah tersambung.
+- **ufw**: ditambah `7881/tcp` dan `7882/udp`. Sudah diverifikasi terjangkau
+  dari internet, jadi security group penyedia VPS tidak memblokirnya.
+- **Sertifikat** untuk kedua domain, diperbarui otomatis oleh certbot systemd
+  timer milik host (bukan container).
+
+## Sertifikat
+
+```bash
+sudo certbot certificates          # lihat masa berlaku
+sudo certbot renew --dry-run       # uji perpanjangan
 ```
 
 ---
 
 ## Troubleshooting
 
-**Nginx gagal start: `cannot load certificate`**
-Langkah 6 belum dijalankan atau gagal. Cek `ls certbot/conf/live/tektok.kameranusantara.id/`.
-
-**Login gagal dengan error CORS**
-Di produksi backend hanya menerima origin yang persis sama. Pastikan
-`PUBLIC_URL=https://tektok.kameranusantara.id` — tanpa garis miring di akhir, dan
-`https`, bukan `http`.
-
-**Siaran muncul tapi layarnya hitam**
-Signalling jalan, media tidak sampai. Hampir selalu firewall UDP:
+**Siaran muncul tapi layar hitam**
+Signalling jalan, media tidak sampai. Periksa kandidat yang diiklankan:
 
 ```bash
-docker compose -f docker-compose.prod.yml --env-file .env.production logs livekit | grep -i candidate
+$CP logs livekit | grep "starting LiveKit server"
 ```
 
-Kandidat yang diiklankan harus `43.106.5.212:7882` (udp) dan `43.106.5.212:7881` (tcp).
-Kalau yang muncul alamat `172.x.x.x`, `node_ip` di `livekit.prod.yaml` salah.
-Kalau alamatnya benar tapi tetap hitam, port 7882/udp tertutup di firewall penyedia VPS.
+`nodeIP` harus `43.106.5.212`. VPS ini ber-NAT (IP internal `172.19.114.244`),
+jadi kalau `use_external_ip` dinyalakan atau `node_ip` dihapus dari
+`livekit.prod.yaml`, LiveKit akan mengiklankan alamat internal dan video tidak
+pernah sampai.
+
+**Login gagal / CORS**
+`CORS_ORIGIN` di `.env.production` harus memuat `https://tektok.kameranusantara.id`
+persis — tanpa garis miring di akhir. Di produksi backend tidak lagi
+mengizinkan origin LAN privat.
+
+**Frontend memanggil alamat API yang salah**
+`VITE_API_URL` dibakar saat build. Ubah `.env.production` lalu
+`$CP build web && $CP up -d`. Cek hasilnya:
+
+```bash
+curl -s https://tektok.kameranusantara.id/ | grep -o '/assets/index-[^"]*\.js'
+curl -s https://tektok.kameranusantara.id/assets/index-XXXX.js | grep -o 'https://api-tektok[^"]*'
+```
 
 **Kamera/mikrofon/GPS tidak bisa diakses**
-Pastikan diakses lewat `https://tektok.kameranusantara.id`, bukan `http://43.106.5.212`.
-Lewat IP langsung, browser tidak menganggapnya secure context dan semua izin perangkat
-diblokir.
+Harus lewat `https://tektok.kameranusantara.id`, bukan `http://43.106.5.212`.
+Browser hanya memberi izin perangkat pada *secure context*.
 
-**Sertifikat mendekati kedaluwarsa**
-Container `certbot` memperbarui otomatis tiap 12 jam dan Nginx me-reload tiap 6 jam.
-Cek manual:
+**Apache tidak mau reload**
 
 ```bash
-docker compose -f docker-compose.prod.yml --env-file .env.production \
-  run --rm --entrypoint certbot certbot certificates
+sudo apache2ctl configtest
 ```
 
-**Melihat log**
+Jangan `systemctl restart apache2` sembarangan — `imt.mogiro.site` ikut
+terpengaruh. Pakai `sudo systemctl reload apache2` bila hanya mengubah vhost.
+
+**MinIO console** tidak terbuka ke internet:
 
 ```bash
-CP="docker compose -f docker-compose.prod.yml --env-file .env.production"
-$CP logs -f api
-$CP logs -f proxy
-$CP logs -f livekit
+ssh -L 9001:127.0.0.1:9001 lab88     # lalu buka http://localhost:9001
 ```
-
----
-
-## Catatan arsitektur
-
-- **MinIO console** tidak diekspos ke internet. Akses lewat SSH tunnel:
-  `ssh -L 9001:127.0.0.1:9001 root@43.106.5.212`, lalu buka `http://localhost:9001`.
-- **PostgreSQL** tidak punya port yang dipublikasikan sama sekali.
-- **Port 7880** (signalling LiveKit) juga tidak dipublikasikan — browser
-  mencapainya lewat `wss://tektok.kameranusantara.id/livekit` yang di-terminate
-  TLS oleh Nginx.
-- **Bucket media** dibuat otomatis saat unggahan pertama, lengkap dengan policy
-  baca publik. Sebelum ada unggahan, `/media/...` wajar menjawab 403.
-- LiveKit memakai **UDP mux** di satu port (7882) untuk semua peserta, bukan
-  rentang 50000-50100. Satu lubang firewall, dan Docker tidak perlu menjalankan
-  ratusan proses `docker-proxy`.
