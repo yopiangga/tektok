@@ -14,11 +14,17 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  PartnerLogo,
+  PartnerWatermark,
+  PartnerWordmark,
+} from '../components/ui/PartnerBrand';
 import { EmptyState, PanelLoading } from '../components/ui/Primitives';
 import { useHiddenStreams } from '../hooks/useHiddenStreams';
 import { useLiveStreams } from '../hooks/useLiveStreams';
 import { useSocketEvent } from '../hooks/useSocketEvent';
 import { useStreamSubscription } from '../hooks/useStreamSubscription';
+import { BRAND, BRAND_VERSION, PARTNER_BRAND } from '../lib/brand';
 import { cx, duration } from '../lib/format';
 import type { Quality } from '../lib/livekit';
 import type { Stream } from '../lib/types';
@@ -123,10 +129,16 @@ export default function Streams() {
             <ArrowLeft size={18} />
           </Link>
 
+          {/* Muncul begitu berkas logo tersedia; sampai itu brand dibawa oleh
+              judul berwarna di sebelahnya. */}
+          <PartnerLogo height={30} className="hidden sm:block" />
+
           <div className="min-w-0 flex-1">
-            <h1 className="flex items-center gap-2 text-sm font-semibold text-ink">
-              <Radio size={16} className="text-danger" />
-              Siaran Langsung
+            <h1 className="flex flex-wrap items-center gap-x-2 text-sm font-semibold text-ink">
+              <Radio size={16} className="shrink-0 text-danger" />
+              <span>
+                Siaran Langsung <span className="text-kn">{PARTNER_BRAND}</span>
+              </span>
               <span className="rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-medium text-danger-strong">
                 {all.length} aktif
               </span>
@@ -235,6 +247,20 @@ export default function Streams() {
           </>
         )}
       </main>
+
+      {/* Dinding ini sering diproyeksikan di ruang komando, jadi brand tetap
+          terbaca bahkan saat belum ada satu pun siaran yang tampil. */}
+      <footer className="border-t border-line bg-canvas-raised px-4 py-2.5 lg:px-6">
+        <div className="mx-auto flex max-w-[110rem] flex-wrap items-center gap-x-3 gap-y-1">
+          <PartnerWordmark className="text-[9px]" />
+          <p className="text-[11px] text-ink-muted">
+            Siaran Langsung {PARTNER_BRAND}
+          </p>
+          <span className="ml-auto text-[11px] text-ink-faint">
+            dipantau dari {BRAND} {BRAND_VERSION}
+          </span>
+        </div>
+      </footer>
     </div>
   );
 }
@@ -329,6 +355,10 @@ function StreamCard({
             )}
           </div>
         )}
+
+        {/* Bug brand di dalam frame. Dilewati pada ubin samping yang mungil:
+            di sana pil ini akan menutupi sebagian gambar, bukan menandainya. */}
+        {!compact && <PartnerWatermark className="bottom-14 right-3" />}
 
         {/* Who is streaming, and from where */}
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 bg-gradient-to-b from-ink/85 to-transparent p-3">

@@ -123,9 +123,11 @@ Klik salah satu nama personel untuk membuka jendela detail berisi:
 - Empat tombol aksi: **Lihat Siaran**, **Beri Misi**, **Kirim Pesan**,
   **Lihat di Peta**
 
-### 5.4 Halaman Siaran Langsung
+### 5.4 Halaman Siaran Langsung Kamera Nusantara
 
-Halaman khusus untuk menonton banyak kamera sekaligus.
+Halaman khusus untuk menonton banyak kamera sekaligus. Halaman inilah yang
+biasa diproyeksikan di ruang komando, jadi brand **Kamera Nusantara** tampil di
+judul, di dalam setiap bingkai video, dan di baris paling bawah.
 
 - **Tiga video per baris**, format lebar (landscape)
 - **Suara per siaran** — bisa dinyalakan satu per satu, ada tombol "Bisukan semua"
@@ -134,6 +136,13 @@ Halaman khusus untuk menonton banyak kamera sekaligus.
   halaman dimuat ulang.
 - **Mode sorot (highlight)** — satu siaran dinaikkan jadi panggung lebar dengan
   kualitas lebih tinggi
+- **Sembunyikan siaran** — mengeluarkan satu siaran dari layar operator itu
+  sendiri. Siarannya tetap berjalan, tetap dihitung pada angka "aktif", dan
+  operator lain tetap melihatnya. Berlaku untuk satu sesi siaran saja, dan ada
+  tombol "Tampilkan tersembunyi" untuk memunculkannya kembali.
+
+**Catatan untuk buku:** angka "aktif" di judul sengaja tetap menghitung siaran
+yang disembunyikan — menyembunyikan bukan menghentikan siaran.
 
 ### 5.5 Pengaturan Sistem
 

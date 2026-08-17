@@ -40,6 +40,17 @@ export default {
           line: '#2E2E2E',
         },
         live: '#FE2C55', // record/live accent — reads instantly as "broadcasting"
+
+        // Warna brand Kamera Nusantara, terpisah dari `danger` yang punya arti
+        // semantik "peringatan" — merah brand tidak boleh ikut berubah kalau
+        // palet peringatan disetel ulang. `light` untuk di atas video gelap,
+        // tempat merah pekat kehilangan kontras.
+        kn: {
+          DEFAULT: '#C1272D',
+          strong: '#9E1F24',
+          light: '#F2555B',
+          ink: '#141414',
+        },
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
