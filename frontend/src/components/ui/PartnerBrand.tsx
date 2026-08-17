@@ -84,9 +84,6 @@ export function PartnerWatermark({
   name?: string;
   caption?: string;
 }) {
-  const wide = height >= 32;
-  const pad = wide ? 'px-5 py-2.5' : 'px-2 py-1';
-
   return (
     <div
       className={cx(
@@ -94,44 +91,31 @@ export function PartnerWatermark({
         // untuk logo, bidang gelap untuk identitas. Logonya dibuat untuk latar
         // putih, jadi bantalan terang bukan pilihan gaya melainkan syarat agar
         // merah brand tetap benar di atas video apa pun.
+        //
+        // Bentuknya sengaja pipih dan memanjang: palang setinggi kartu akan
+        // memakan bidang tengah frame, tepat tempat objek yang sedang ditonton.
+        // Panjangnya diatur pemanggil lewat `className` (mis. `w-[30rem]`);
+        // panel gelapnya meregang mengisi sisa, jadi teksnya tidak mengambang.
         'pointer-events-none absolute flex select-none items-stretch overflow-hidden rounded-lg shadow-lift',
         className
       )}
     >
       <div
         className={cx(
-          'flex items-center',
-          pad,
+          'flex shrink-0 items-center px-4 py-2',
           PARTNER_LOGO_SRC ? 'bg-white' : 'bg-white/85 backdrop-blur-sm'
         )}
       >
-        <PartnerMark height={height} textClassName={wide ? 'text-xs' : 'text-[9px]'} />
+        <PartnerMark height={height} textClassName="text-[10px]" />
       </div>
 
       {name && (
-        <div
-          className={cx(
-            'flex min-w-0 flex-col justify-center bg-ink/85 backdrop-blur-sm',
-            wide ? 'px-5 py-2' : 'px-2.5 py-1'
-          )}
-        >
-          <p
-            className={cx(
-              'truncate font-semibold leading-tight text-white',
-              wide ? 'text-base' : 'text-xs'
-            )}
-          >
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 bg-ink/85 px-4 py-1.5 backdrop-blur-sm">
+          <p className="truncate text-sm font-semibold uppercase leading-none tracking-wide text-white">
             {name}
           </p>
           {caption && (
-            <p
-              className={cx(
-                'truncate leading-tight text-white/70',
-                wide ? 'text-[11px]' : 'text-[9px]'
-              )}
-            >
-              {caption}
-            </p>
+            <p className="truncate text-[10px] leading-none text-white/70">{caption}</p>
           )}
         </div>
       )}

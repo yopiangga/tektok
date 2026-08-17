@@ -216,7 +216,13 @@ export default function Streams() {
                     <p className="px-0.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                       {rest.length} siaran lain
                     </p>
-                    <div className="panel-scroll flex min-h-0 flex-1 flex-col gap-2 pr-0.5">
+                    {/* Blok biasa, bukan `flex-col`: di kolom yang tingginya
+                        sudah pasti, anak flex boleh menyusut, jadi tiap ubin
+                        ikut dipendekkan sekadar agar semuanya muat — bingkai
+                        16:9-nya terpotong dan tingginya jadi tidak seragam.
+                        Sebagai blok, ubinnya tetap seukuran aslinya dan sisanya
+                        digulir. */}
+                    <div className="panel-scroll min-h-0 flex-1 space-y-2 pr-0.5">
                       {rest.map((s) => (
                         <StreamCard
                           key={s.id}
@@ -389,10 +395,10 @@ function StreamCard({
             menjelaskan siaran ini milik siapa. */}
         {stage && (
           <PartnerWatermark
-            height={40}
+            height={26}
             name={stream.officer.fullName}
             caption={`${stream.officer.unitName ?? 'Tanpa unit'} · ${stream.officer.badgeNumber ?? '—'}`}
-            className="bottom-8 left-1/2 max-w-[80%] -translate-x-1/2"
+            className="bottom-8 left-1/2 w-[30rem] max-w-[85%] -translate-x-1/2"
           />
         )}
 
