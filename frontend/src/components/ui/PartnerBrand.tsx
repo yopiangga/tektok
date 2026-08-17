@@ -70,20 +70,71 @@ function PartnerMark({
  * terbawa saat frame diproyeksikan atau dipotret, bukan hanya menempel di
  * kerangka aplikasi.
  */
-export function PartnerWatermark({ className }: { className?: string }) {
+export function PartnerWatermark({
+  className,
+  /** Tinggi marknya; bantalan ikut menyesuaikan supaya proporsinya tetap sama. */
+  height = 22,
+  /** Nama akun yang sedang menyiarkan; kalau ada, muncul panel teks di kanan logo. */
+  name,
+  /** Baris kecil di bawah nama — unit, nomor, apa pun keterangannya. */
+  caption,
+}: {
+  className?: string;
+  height?: number;
+  name?: string;
+  caption?: string;
+}) {
+  const wide = height >= 32;
+  const pad = wide ? 'px-5 py-2.5' : 'px-2 py-1';
+
   return (
     <div
       className={cx(
-        // Bantalan terang, bukan gelap: logo dibuat untuk latar putih, jadi
-        // warna brand tetap benar di atas video apa pun. Dengan logo bantalannya
-        // putih pekat — logo itu membawa latar putihnya sendiri, dan bidang
-        // separuh tembus di sekelilingnya akan terlihat seperti dua lapis.
-        'pointer-events-none absolute select-none rounded-md px-2 py-1 shadow-soft',
-        PARTNER_LOGO_SRC ? 'bg-white' : 'bg-white/80 backdrop-blur-sm',
+        // Satu palang, dua bidang — seperti lower third siaran TV: bidang terang
+        // untuk logo, bidang gelap untuk identitas. Logonya dibuat untuk latar
+        // putih, jadi bantalan terang bukan pilihan gaya melainkan syarat agar
+        // merah brand tetap benar di atas video apa pun.
+        'pointer-events-none absolute flex select-none items-stretch overflow-hidden rounded-lg shadow-lift',
         className
       )}
     >
-      <PartnerMark height={22} textClassName="text-[9px]" />
+      <div
+        className={cx(
+          'flex items-center',
+          pad,
+          PARTNER_LOGO_SRC ? 'bg-white' : 'bg-white/85 backdrop-blur-sm'
+        )}
+      >
+        <PartnerMark height={height} textClassName={wide ? 'text-xs' : 'text-[9px]'} />
+      </div>
+
+      {name && (
+        <div
+          className={cx(
+            'flex min-w-0 flex-col justify-center bg-ink/85 backdrop-blur-sm',
+            wide ? 'px-5 py-2' : 'px-2.5 py-1'
+          )}
+        >
+          <p
+            className={cx(
+              'truncate font-semibold leading-tight text-white',
+              wide ? 'text-base' : 'text-xs'
+            )}
+          >
+            {name}
+          </p>
+          {caption && (
+            <p
+              className={cx(
+                'truncate leading-tight text-white/70',
+                wide ? 'text-[11px]' : 'text-[9px]'
+              )}
+            >
+              {caption}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

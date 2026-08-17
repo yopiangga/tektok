@@ -204,28 +204,33 @@ export default function Streams() {
                 />
 
                 {/* Daftar siaran lain, tetap tertonton selagi satu di panggung.
-                    `min-h-0` + `xl:h-full`: kolom grid meregang setinggi
-                    panggung, jadi daftarnya berhenti tepat di tepi bawah
-                    panggung dan menggulir di dalam dirinya sendiri — bukan
-                    dipaku ke tinggi tebakan yang meleset di tiap layar. */}
-                <aside className="flex min-h-0 flex-col gap-2 xl:h-full">
-                  <p className="px-0.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-                    {rest.length} siaran lain
-                  </p>
-                  <div className="panel-scroll flex min-h-0 flex-1 flex-col gap-2">
-                    {rest.map((s) => (
-                      <StreamCard
-                        key={s.id}
-                        stream={s}
-                        compact
-                        pinned={pinned.includes(s.id)}
-                        muted={!unmuted.includes(s.id)}
-                        onPin={() => setPinned((p) => toggle(p, s.id))}
-                        onMute={() => setUnmuted((m) => toggle(m, s.id))}
-                        onHighlight={() => setHighlighted(s.id)}
-                        onHide={() => hide(s.id)}
-                      />
-                    ))}
+                    Isinya keluar dari alur (`xl:absolute`) supaya tinggi baris
+                    grid ditentukan panggung saja: `h-full` di dalam baris yang
+                    tingginya justru diukur dari isi kolom ini tidak pernah
+                    membatasi apa pun — enam belas ubin meregangkan barisnya, dan
+                    panggung yang ikut meregang menyisakan bidang gelap kosong di
+                    bawah videonya. Sekarang barisnya setinggi panggung dan
+                    daftarnya menggulir di dalam dirinya sendiri. */}
+                <aside className="relative flex min-h-0 flex-col xl:block">
+                  <div className="flex min-h-0 flex-1 flex-col gap-2 xl:absolute xl:inset-0">
+                    <p className="px-0.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                      {rest.length} siaran lain
+                    </p>
+                    <div className="panel-scroll flex min-h-0 flex-1 flex-col gap-2 pr-0.5">
+                      {rest.map((s) => (
+                        <StreamCard
+                          key={s.id}
+                          stream={s}
+                          compact
+                          pinned={pinned.includes(s.id)}
+                          muted={!unmuted.includes(s.id)}
+                          onPin={() => setPinned((p) => toggle(p, s.id))}
+                          onMute={() => setUnmuted((m) => toggle(m, s.id))}
+                          onHighlight={() => setHighlighted(s.id)}
+                          onHide={() => hide(s.id)}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </aside>
               </section>
@@ -382,7 +387,14 @@ function StreamCard({
             dipotret. Di dinding penuh, sepuluh pil brand sekaligus menutupi
             gambar tanpa menambah keterangan apa pun; brand di navbar sudah
             menjelaskan siaran ini milik siapa. */}
-        {stage && <PartnerWatermark className="bottom-14 right-3" />}
+        {stage && (
+          <PartnerWatermark
+            height={40}
+            name={stream.officer.fullName}
+            caption={`${stream.officer.unitName ?? 'Tanpa unit'} · ${stream.officer.badgeNumber ?? '—'}`}
+            className="bottom-8 left-1/2 max-w-[80%] -translate-x-1/2"
+          />
+        )}
 
         {/* Who is streaming, and from where */}
         <div
@@ -391,21 +403,26 @@ function StreamCard({
             compact ? 'p-2' : 'p-3'
           )}
         >
-          <div className="min-w-0">
-            <p
-              className={cx(
-                'truncate font-semibold text-white',
-                stage ? 'text-base' : compact ? 'text-[11px]' : 'text-sm'
-              )}
-            >
-              {stream.officer.fullName}
-            </p>
-            <p className="truncate text-[10px] text-white/70">
-              {stream.officer.unitName ?? 'Tanpa unit'} · {stream.officer.badgeNumber ?? '—'}
-            </p>
-          </div>
+          {/* Di panggung identitasnya sudah dibawa lower third di bawah, jadi
+              sudut atas cukup menyisakan penanda status — nama yang sama dua kali
+              di satu frame hanya menutup gambar. */}
+          {!stage && (
+            <div className="min-w-0">
+              <p
+                className={cx(
+                  'truncate font-semibold text-white',
+                  compact ? 'text-[11px]' : 'text-sm'
+                )}
+              >
+                {stream.officer.fullName}
+              </p>
+              <p className="truncate text-[10px] text-white/70">
+                {stream.officer.unitName ?? 'Tanpa unit'} · {stream.officer.badgeNumber ?? '—'}
+              </p>
+            </div>
+          )}
 
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="ml-auto flex shrink-0 items-center gap-1">
             {pinned && (
               <span className="rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-bold text-white">
                 PIN
