@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { KeyRound, Plus, Search, Trash2, UserCheck, UserX, Users } from 'lucide-react';
+import { KeyRound, Pencil, Plus, Search, Trash2, UserCheck, UserX, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api, apiErrorMessage } from '../../lib/api';
 import { cx, formatDateTime } from '../../lib/format';
@@ -41,13 +41,14 @@ const ROLE_CHIP: Record<RoleCode, string> = {
 };
 
 export default function UsersPanel({ onChanged }: { onChanged: () => void }) {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, refresh } = useAuth();
   const queryClient = useQueryClient();
 
   const [role, setRole] = useState<RoleCode | 'all'>('all');
   const [term, setTerm] = useState('');
   const [debounced, setDebounced] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const [editFor, setEditFor] = useState<UserRow | null>(null);
   const [resetFor, setResetFor] = useState<UserRow | null>(null);
   const [deleteFor, setDeleteFor] = useState<UserRow | null>(null);
 
@@ -159,6 +160,14 @@ export default function UsersPanel({ onChanged }: { onChanged: () => void }) {
                 <div className="flex shrink-0 items-center gap-1">
                   <button
                     type="button"
+                    onClick={() => setEditFor(row)}
+                    className="grid h-8 w-8 place-items-center rounded-md text-ink-muted transition-colors hover:bg-accent-soft hover:text-accent"
+                    title="Ubah nama"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setResetFor(row)}
                     className="grid h-8 w-8 place-items-center rounded-md text-ink-muted transition-colors hover:bg-accent-soft hover:text-accent"
                     title="Atur ulang password"
@@ -211,6 +220,17 @@ export default function UsersPanel({ onChanged }: { onChanged: () => void }) {
         units={units.data ?? []}
         onClose={() => setCreateOpen(false)}
         onCreated={invalidate}
+      />
+
+      <EditNameModal
+        user={editFor}
+        onClose={() => setEditFor(null)}
+        onSaved={(id) => {
+          invalidate();
+          // Nama sendiri juga tampil di header dan pesan; muat ulang sesi agar
+          // seluruh aplikasi memakai nama yang baru tanpa perlu login lagi.
+          if (id === currentUser?.id) void refresh();
+        }}
       />
 
       <ResetPasswordModal user={resetFor} onClose={() => setResetFor(null)} onSaved={invalidate} />
@@ -577,6 +597,86 @@ function CreateUserModal({
           </p>
         )}
       </div>
+    </Modal>
+  );
+}
+
+/**
+ * Username adalah identitas login dan dipakai sebagai acuan di audit log, jadi
+ * yang dapat diubah hanya nama tampilan. Nama inilah yang muncul di peta,
+ * laporan, dan riwayat aktivitas.
+ */
+function EditNameModal({
+  user,
+  onClose,
+  onSaved,
+}: {
+  user: UserRow | null;
+  onClose: () => void;
+  onSaved: (id: number) => void;
+}) {
+  const [fullName, setFullName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFullName(user?.fullName ?? '');
+    setError(null);
+  }, [user]);
+
+  const save = useMutation({
+    mutationFn: () => api.patch(`/settings/users/${user!.id}`, { fullName: fullName.trim() }),
+    onSuccess: () => {
+      onSaved(user!.id);
+      onClose();
+    },
+    onError: (err) => setError(apiErrorMessage(err, 'Gagal menyimpan nama')),
+  });
+
+  const trimmed = fullName.trim();
+  const valid = trimmed.length > 0 && trimmed.length <= 200 && trimmed !== user?.fullName;
+
+  return (
+    <Modal
+      open={user != null}
+      onClose={onClose}
+      title="Ubah Nama"
+      subtitle={user ? `@${user.username}` : ''}
+      footer={
+        <>
+          <button type="button" className="btn-secondary btn-md" onClick={onClose}>
+            Batal
+          </button>
+          <button
+            type="button"
+            className="btn-primary btn-md"
+            onClick={() => save.mutate()}
+            disabled={!valid || save.isPending}
+          >
+            {save.isPending ? <Spinner size={16} /> : <Pencil size={16} />}
+            Simpan
+          </button>
+        </>
+      }
+    >
+      <label className="label" htmlFor="edit-fullname">
+        Nama lengkap
+      </label>
+      <input
+        id="edit-fullname"
+        className="field"
+        value={fullName}
+        onChange={(e) => setFullName(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && valid && !save.isPending) save.mutate();
+        }}
+        maxLength={200}
+        autoFocus
+      />
+      <p className="mt-2 text-xs text-ink-muted">
+        Username <span className="font-mono">@{user?.username}</span> tidak berubah. Perubahan nama
+        tercatat dalam audit log.
+      </p>
+      {error && <p className="mt-3 text-sm text-danger-strong">{error}</p>}
     </Modal>
   );
 }
