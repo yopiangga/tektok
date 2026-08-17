@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
+  Expand,
   Eye,
   EyeOff,
   Maximize2,
@@ -8,19 +9,20 @@ import {
   Pin,
   PinOff,
   Radio,
+  Shrink,
   VideoOff,
   Volume2,
   VolumeX,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { PartnerLogo, PartnerMark, PartnerWatermark } from '../components/ui/PartnerBrand';
+import { PartnerLogo, PartnerWatermark } from '../components/ui/PartnerBrand';
 import { EmptyState, PanelLoading } from '../components/ui/Primitives';
+import { useFullscreen } from '../hooks/useFullscreen';
 import { useHiddenStreams } from '../hooks/useHiddenStreams';
 import { useLiveStreams } from '../hooks/useLiveStreams';
 import { useSocketEvent } from '../hooks/useSocketEvent';
 import { useStreamSubscription } from '../hooks/useStreamSubscription';
-import { BRAND, BRAND_VERSION, PARTNER_BRAND } from '../lib/brand';
 import { cx, duration } from '../lib/format';
 import type { Quality } from '../lib/livekit';
 import type { Stream } from '../lib/types';
@@ -125,16 +127,13 @@ export default function Streams() {
             <ArrowLeft size={18} />
           </Link>
 
-          {/* Muncul begitu berkas logo tersedia; sampai itu brand dibawa oleh
-              judul berwarna di sebelahnya. */}
-          <PartnerLogo height={30} className="hidden sm:block" />
+          {/* Satu-satunya tempat brand di halaman ini. Video sengaja dibiarkan
+              bersih; logo di sini yang menjelaskan siaran ini milik siapa. */}
+          <PartnerLogo height={30} className="shrink-0" />
 
           <div className="min-w-0 flex-1">
             <h1 className="flex flex-wrap items-center gap-x-2 text-sm font-semibold text-ink">
-              <Radio size={16} className="shrink-0 text-danger" />
-              <span>
-                Siaran Langsung <span className="text-kn">{PARTNER_BRAND}</span>
-              </span>
+              Siaran Langsung
               <span className="rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-medium text-danger-strong">
                 {all.length} aktif
               </span>
@@ -204,22 +203,31 @@ export default function Streams() {
                   onHide={() => hide(stage.id)}
                 />
 
-                {/* Sidebar keeps the rest watchable while one is on stage. */}
-                <div className="grid max-h-[70vh] gap-3 overflow-y-auto pr-1 xl:grid-cols-1">
-                  {rest.map((s) => (
-                    <StreamCard
-                      key={s.id}
-                      stream={s}
-                      compact
-                      pinned={pinned.includes(s.id)}
-                      muted={!unmuted.includes(s.id)}
-                      onPin={() => setPinned((p) => toggle(p, s.id))}
-                      onMute={() => setUnmuted((m) => toggle(m, s.id))}
-                      onHighlight={() => setHighlighted(s.id)}
-                      onHide={() => hide(s.id)}
-                    />
-                  ))}
-                </div>
+                {/* Daftar siaran lain, tetap tertonton selagi satu di panggung.
+                    `min-h-0` + `xl:h-full`: kolom grid meregang setinggi
+                    panggung, jadi daftarnya berhenti tepat di tepi bawah
+                    panggung dan menggulir di dalam dirinya sendiri — bukan
+                    dipaku ke tinggi tebakan yang meleset di tiap layar. */}
+                <aside className="flex min-h-0 flex-col gap-2 xl:h-full">
+                  <p className="px-0.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                    {rest.length} siaran lain
+                  </p>
+                  <div className="panel-scroll flex min-h-0 flex-1 flex-col gap-2">
+                    {rest.map((s) => (
+                      <StreamCard
+                        key={s.id}
+                        stream={s}
+                        compact
+                        pinned={pinned.includes(s.id)}
+                        muted={!unmuted.includes(s.id)}
+                        onPin={() => setPinned((p) => toggle(p, s.id))}
+                        onMute={() => setUnmuted((m) => toggle(m, s.id))}
+                        onHighlight={() => setHighlighted(s.id)}
+                        onHide={() => hide(s.id)}
+                      />
+                    ))}
+                  </div>
+                </aside>
               </section>
             )}
 
@@ -243,18 +251,6 @@ export default function Streams() {
           </>
         )}
       </main>
-
-      {/* Dinding ini sering diproyeksikan di ruang komando, jadi brand tetap
-          terbaca bahkan saat belum ada satu pun siaran yang tampil. */}
-      <footer className="border-t border-line bg-canvas-raised px-4 py-2.5 lg:px-6">
-        <div className="mx-auto flex max-w-[110rem] flex-wrap items-center gap-x-3 gap-y-1">
-          <PartnerMark height={24} textClassName="text-[9px]" />
-          <p className="text-[11px] text-ink-muted">Siaran Langsung {PARTNER_BRAND}</p>
-          <span className="ml-auto text-[11px] text-ink-faint">
-            dipantau dari {BRAND} {BRAND_VERSION}
-          </span>
-        </div>
-      </footer>
     </div>
   );
 }
@@ -305,20 +301,52 @@ function StreamCard({
     if (videoRef.current) videoRef.current.muted = muted;
   }, [muted, state, videoRef]);
 
+  const frameRef = useRef<HTMLDivElement>(null);
+  const { isFullscreen, toggleFullscreen } = useFullscreen(frameRef);
+
+  // Ubin samping cukup diklik untuk naik ke panggung. Tombol sorot terpisah
+  // hanya akan menumpuk kontrol di ubin yang sudah sempit.
+  const promote = compact ? onHighlight : undefined;
+  const stopThen = (action: () => void) => (event: React.MouseEvent) => {
+    event.stopPropagation();
+    action();
+  };
+
   return (
     <article
       className={cx(
         'group relative overflow-hidden rounded-xl border bg-ink',
-        pinned ? 'border-accent ring-1 ring-accent/40' : 'border-line'
+        pinned ? 'border-accent ring-1 ring-accent/40' : 'border-line',
+        compact && 'transition-colors hover:border-accent/60'
       )}
     >
-      <div className="relative aspect-video w-full">
+      <div
+        ref={frameRef}
+        className={cx('relative w-full bg-ink', !isFullscreen && 'aspect-video', promote && 'cursor-pointer')}
+        role={promote ? 'button' : undefined}
+        tabIndex={promote ? 0 : undefined}
+        title={promote ? `Jadikan ${stream.officer.fullName} sorotan` : undefined}
+        onClick={promote}
+        onKeyDown={
+          promote
+            ? (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  promote();
+                }
+              }
+            : undefined
+        }
+      >
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted={muted}
-          className="h-full w-full object-cover"
+          // Layar penuh memakai `contain`: proporsi layar proyektor jarang tepat
+          // 16:9, dan `cover` akan memotong tepi gambar yang justru sedang
+          // diperiksa. Di ubin, `cover` tetap benar supaya tidak ada pita hitam.
+          className={cx('h-full w-full', isFullscreen ? 'object-contain' : 'object-cover')}
         />
 
         {state !== 'live' && (
@@ -350,12 +378,19 @@ function StreamCard({
           </div>
         )}
 
-        {/* Bug brand di dalam frame. Dilewati pada ubin samping yang mungil:
-            di sana pil ini akan menutupi sebagian gambar, bukan menandainya. */}
-        {!compact && <PartnerWatermark className="bottom-14 right-3" />}
+        {/* Hanya di panggung — tampilan detail yang benar-benar ditonton dan
+            dipotret. Di dinding penuh, sepuluh pil brand sekaligus menutupi
+            gambar tanpa menambah keterangan apa pun; brand di navbar sudah
+            menjelaskan siaran ini milik siapa. */}
+        {stage && <PartnerWatermark className="bottom-14 right-3" />}
 
         {/* Who is streaming, and from where */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 bg-gradient-to-b from-ink/85 to-transparent p-3">
+        <div
+          className={cx(
+            'pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 bg-gradient-to-b from-ink/85 to-transparent',
+            compact ? 'p-2' : 'p-3'
+          )}
+        >
           <div className="min-w-0">
             <p
               className={cx(
@@ -391,8 +426,18 @@ function StreamCard({
         </div>
 
         {/* Status + controls */}
-        <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-ink/90 to-transparent p-3">
-          <div className="flex items-center gap-2 text-[10px] text-white/85">
+        <div
+          className={cx(
+            'absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-ink/90 to-transparent',
+            compact ? 'p-2' : 'p-3'
+          )}
+        >
+          <div
+            className={cx(
+              'flex items-center gap-2 text-white/85',
+              compact ? 'text-[9px]' : 'text-[10px]'
+            )}
+          >
             <span className="font-mono tabular-nums">{elapsed}</span>
             <span className="flex items-center gap-1">
               <span className={cx('h-1.5 w-1.5 rounded-full', QUALITY_TONE[quality])} />
@@ -405,36 +450,76 @@ function StreamCard({
             )}
           </div>
 
-          {/* Always visible: on a wall you should not have to hunt for controls. */}
-          <div className="flex items-center gap-1">
-            <ControlButton
-              onClick={onMute}
-              active={!muted}
-              title={muted ? 'Nyalakan audio' : 'Bisukan audio'}
-            >
-              {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-            </ControlButton>
+          {compact ? (
+            /* Dua kontrol saja, muncul saat disentuh kursor. Empat tombol 32 px
+               memenuhi ubin selebar ini sampai gambarnya tinggal sisa — dan
+               sorot sudah bisa dari klik ubinnya, sematan dari panggung. */
+            <div className="flex items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+              <ControlButton
+                small
+                onClick={stopThen(onMute)}
+                active={!muted}
+                title={muted ? 'Nyalakan audio' : 'Bisukan audio'}
+              >
+                {muted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+              </ControlButton>
+              <ControlButton
+                small
+                onClick={stopThen(onHide)}
+                active={false}
+                title={`Sembunyikan siaran ${stream.officer.fullName}`}
+              >
+                <EyeOff size={13} />
+              </ControlButton>
+            </div>
+          ) : (
+            /* Always visible: on a wall you should not have to hunt for controls. */
+            <div className="flex items-center gap-1">
+              <ControlButton
+                onClick={onMute}
+                active={!muted}
+                title={muted ? 'Nyalakan audio' : 'Bisukan audio'}
+              >
+                {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+              </ControlButton>
 
-            <ControlButton onClick={onPin} active={pinned} title={pinned ? 'Lepas sematan' : 'Sematkan'}>
-              {pinned ? <PinOff size={14} /> : <Pin size={14} />}
-            </ControlButton>
+              <ControlButton
+                onClick={onPin}
+                active={pinned}
+                title={pinned ? 'Lepas sematan' : 'Sematkan'}
+              >
+                {pinned ? <PinOff size={14} /> : <Pin size={14} />}
+              </ControlButton>
 
-            <ControlButton
-              onClick={onHighlight}
-              active={highlighted}
-              title={highlighted ? 'Keluar dari highlight' : 'Jadikan highlight'}
-            >
-              {highlighted ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-            </ControlButton>
+              <ControlButton
+                onClick={onHighlight}
+                active={highlighted}
+                title={highlighted ? 'Keluar dari highlight' : 'Jadikan highlight'}
+              >
+                {highlighted ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+              </ControlButton>
 
-            <ControlButton
-              onClick={onHide}
-              active={false}
-              title={`Sembunyikan siaran ${stream.officer.fullName}`}
-            >
-              <EyeOff size={14} />
-            </ControlButton>
-          </div>
+              {/* Layar penuh hanya di panggung: di ubin dinding, satu klik sorot
+                  lebih berguna daripada melempar ubin sekecil itu ke seluruh layar. */}
+              {stage && (
+                <ControlButton
+                  onClick={toggleFullscreen}
+                  active={isFullscreen}
+                  title={isFullscreen ? 'Keluar dari layar penuh' : 'Layar penuh'}
+                >
+                  {isFullscreen ? <Shrink size={14} /> : <Expand size={14} />}
+                </ControlButton>
+              )}
+
+              <ControlButton
+                onClick={onHide}
+                active={false}
+                title={`Sembunyikan siaran ${stream.officer.fullName}`}
+              >
+                <EyeOff size={14} />
+              </ControlButton>
+            </div>
+          )}
         </div>
       </div>
     </article>
@@ -445,11 +530,13 @@ function ControlButton({
   onClick,
   active,
   title,
+  small = false,
   children,
 }: {
-  onClick: () => void;
+  onClick: (event: React.MouseEvent) => void;
   active: boolean;
   title: string;
+  small?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -460,7 +547,8 @@ function ControlButton({
       aria-label={title}
       aria-pressed={active}
       className={cx(
-        'grid h-8 w-8 place-items-center rounded-md text-white backdrop-blur transition-colors',
+        'grid place-items-center rounded-md text-white backdrop-blur transition-colors',
+        small ? 'h-7 w-7' : 'h-8 w-8',
         active ? 'bg-accent hover:bg-accent-strong' : 'bg-white/15 hover:bg-white/30'
       )}
     >

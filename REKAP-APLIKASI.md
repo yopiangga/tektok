@@ -125,17 +125,21 @@ Klik salah satu nama personel untuk membuka jendela detail berisi:
 
 ### 5.4 Halaman Siaran Langsung Kamera Nusantara
 
-Halaman khusus untuk menonton banyak kamera sekaligus. Halaman inilah yang
-biasa diproyeksikan di ruang komando, jadi brand **Kamera Nusantara** tampil di
-judul, di dalam setiap bingkai video, dan di baris paling bawah.
+Halaman khusus untuk menonton banyak kamera sekaligus. Logo **Kamera Nusantara**
+ada di navbar, bersama tulisan "Siaran Langsung" dan jumlah siaran aktif.
 
-- **Tiga video per baris**, format lebar (landscape)
+- **Tiga video per baris**, format lebar (landscape). Video dibiarkan bersih
+  tanpa watermark supaya gambar lapangan tidak tertutupi.
 - **Suara per siaran** — bisa dinyalakan satu per satu, ada tombol "Bisukan semua"
 - **Sematkan (pin)** — siaran yang disematkan selalu berada di depan meski ada
   siaran baru masuk. Pilihan ini tersimpan di browser, jadi tetap ada setelah
   halaman dimuat ulang.
 - **Mode sorot (highlight)** — satu siaran dinaikkan jadi panggung lebar dengan
-  kualitas lebih tinggi
+  kualitas lebih tinggi. Di tampilan inilah watermark logo muncul di kanan
+  bawah, dan tersedia tombol **layar penuh**.
+- **Daftar siaran lain** di panel kanan — cukup diklik untuk menukar siaran yang
+  sedang jadi sorotan. Tombol bisukan dan sembunyikan muncul saat kursor berada
+  di atas ubinnya.
 - **Sembunyikan siaran** — mengeluarkan satu siaran dari layar operator itu
   sendiri. Siarannya tetap berjalan, tetap dihitung pada angka "aktif", dan
   operator lain tetap melihatnya. Berlaku untuk satu sesi siaran saja, dan ada

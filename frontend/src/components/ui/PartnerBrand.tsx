@@ -12,7 +12,7 @@ import { cx } from '../../lib/format';
 const [FIRST, SECOND] = PARTNER_WORDMARK;
 
 /** Wordmark dua baris: "KAMERA" gelap di atas, "NUSANTARA" merah di bawah. */
-export function PartnerWordmark({
+function PartnerWordmark({
   tone = 'ink',
   className,
 }: {
@@ -51,7 +51,7 @@ export function PartnerLogo({ height, className }: { height: number; className?:
 }
 
 /** Logo kalau berkasnya ada, wordmark kalau tidak. Tinggi keduanya disetarakan. */
-export function PartnerMark({
+function PartnerMark({
   height,
   textClassName,
 }: {
