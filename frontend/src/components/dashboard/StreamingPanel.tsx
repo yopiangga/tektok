@@ -1,6 +1,17 @@
-import { Grid2x2, Grid3x3, Maximize2, Video, VideoOff, Volume2, VolumeX, X } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  Grid2x2,
+  Grid3x3,
+  Maximize2,
+  Video,
+  VideoOff,
+  Volume2,
+  VolumeX,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useHiddenStreams } from '../../hooks/useHiddenStreams';
 import { useStreamSubscription } from '../../hooks/useStreamSubscription';
 import { cx, duration } from '../../lib/format';
 import type { Quality } from '../../lib/livekit';
@@ -31,12 +42,12 @@ type GridKey = (typeof GRIDS)[number]['key'];
 function StreamTile({
   stream,
   onExpand,
-  onStopViewing,
+  onHide,
   large = false,
 }: {
   stream: Stream;
   onExpand?: () => void;
-  onStopViewing: (id: number) => void;
+  onHide: (id: number) => void;
   large?: boolean;
 }) {
   const [muted, setMuted] = useState(true);
@@ -164,11 +175,11 @@ function StreamTile({
             )}
             <button
               type="button"
-              onClick={() => onStopViewing(stream.id)}
-              className="grid h-7 w-7 place-items-center rounded-md bg-white/15 text-white backdrop-blur transition-colors hover:bg-danger"
-              title="Berhenti menonton"
+              onClick={() => onHide(stream.id)}
+              className="grid h-7 w-7 place-items-center rounded-md bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/30"
+              title={`Sembunyikan siaran ${stream.officer.fullName}`}
             >
-              <X size={13} />
+              <EyeOff size={13} />
             </button>
           </div>
         </div>
@@ -189,11 +200,24 @@ export default function StreamingPanel({
   onExpandedChange: (id: number | null) => void;
 }) {
   const [grid, setGrid] = useState<GridKey>('2x2');
-  const [hidden, setHidden] = useState<Set<number>>(new Set());
+  // Sama persis dengan daftar sembunyi di halaman Siaran Langsung: apa yang
+  // disembunyikan di satu tempat ikut hilang di tempat lain, dan bertahan
+  // setelah halaman dimuat ulang.
+  const { hidden, hide, showAll, prune } = useHiddenStreams();
 
   const config = GRIDS.find((g) => g.key === grid)!;
-  const visible = streams.filter((s) => !hidden.has(s.id)).slice(0, config.cap);
+  const shown = streams.filter((s) => !hidden.includes(s.id));
+  const visible = shown.slice(0, config.cap);
+  // Dihitung dari siaran yang benar-benar aktif, bukan panjang daftar simpanan,
+  // supaya sesi yang sudah berakhir tidak pernah ikut terhitung.
+  const hiddenCount = streams.length - shown.length;
   const expanded = streams.find((s) => s.id === expandedId) ?? null;
+
+  // Buang id sesi yang sudah berakhir; jangan saat masih memuat, karena daftar
+  // yang sementara kosong akan menghapus seluruh pilihan operator.
+  useEffect(() => {
+    if (!loading) prune(streams.map((s) => s.id));
+  }, [loading, streams, prune]);
 
   return (
     <section className="card flex h-full min-h-[420px] flex-col overflow-hidden">
@@ -235,11 +259,11 @@ export default function StreamingPanel({
           <PanelLoading label="Memuat siaran…" />
         ) : visible.length === 0 ? (
           <EmptyState
-            icon={<VideoOff size={22} />}
-            title="Tidak ada siaran aktif"
+            icon={hiddenCount > 0 ? <EyeOff size={22} /> : <VideoOff size={22} />}
+            title={hiddenCount > 0 ? 'Semua siaran disembunyikan' : 'Tidak ada siaran aktif'}
             hint={
-              hidden.size > 0
-                ? 'Semua siaran disembunyikan. Muat ulang panel untuk menampilkannya kembali.'
+              hiddenCount > 0
+                ? 'Siaran tetap berjalan, hanya tidak ditampilkan di layar ini.'
                 : 'Siaran akan muncul otomatis saat personel memulai live stream.'
             }
           />
@@ -250,19 +274,16 @@ export default function StreamingPanel({
                 key={stream.id}
                 stream={stream}
                 onExpand={() => onExpandedChange(stream.id)}
-                onStopViewing={(id) => setHidden((prev) => new Set(prev).add(id))}
+                onHide={hide}
               />
             ))}
           </div>
         )}
 
-        {hidden.size > 0 && (
-          <button
-            type="button"
-            onClick={() => setHidden(new Set())}
-            className="btn-secondary btn-sm mt-3 w-full"
-          >
-            Tampilkan kembali {hidden.size} siaran
+        {hiddenCount > 0 && (
+          <button type="button" onClick={showAll} className="btn-secondary btn-sm mt-3 w-full">
+            <Eye size={14} />
+            Tampilkan kembali {hiddenCount} siaran
           </button>
         )}
       </div>
@@ -277,7 +298,10 @@ export default function StreamingPanel({
         {expanded && (
           <StreamTile
             stream={expanded}
-            onStopViewing={() => onExpandedChange(null)}
+            onHide={(id) => {
+              hide(id);
+              onExpandedChange(null);
+            }}
             large
           />
         )}

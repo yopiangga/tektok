@@ -1,6 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
+  Eye,
+  EyeOff,
   Maximize2,
   Minimize2,
   Pin,
@@ -13,6 +15,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EmptyState, PanelLoading } from '../components/ui/Primitives';
+import { useHiddenStreams } from '../hooks/useHiddenStreams';
 import { useLiveStreams } from '../hooks/useLiveStreams';
 import { useSocketEvent } from '../hooks/useSocketEvent';
 import { useStreamSubscription } from '../hooks/useStreamSubscription';
@@ -63,6 +66,7 @@ export default function Streams() {
   }, [pinned]);
 
   const streams = useLiveStreams();
+  const { hidden, hide, showAll, prune } = useHiddenStreams();
 
   const refresh = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['streams'] });
@@ -71,7 +75,21 @@ export default function Streams() {
   useSocketEvent('stream_started', refresh);
   useSocketEvent('stream_stopped', refresh);
 
-  const live = useMemo(() => streams.data ?? [], [streams.data]);
+  const all = useMemo(() => streams.data ?? [], [streams.data]);
+
+  // Siaran yang disembunyikan tetap berjalan dan tetap dihitung "aktif"; yang
+  // hilang hanya ubinnya dari dinding ini. Membuang mereka lebih dulu berarti
+  // sematan, highlight, dan audio hanya pernah menyangkut siaran yang tampil.
+  const live = useMemo(() => all.filter((s) => !hidden.includes(s.id)), [all, hidden]);
+
+  // Dihitung dari siaran yang benar-benar aktif, bukan panjang daftar simpanan,
+  // supaya sesi yang sudah berakhir tidak pernah ikut terhitung.
+  const hiddenCount = all.length - live.length;
+
+  // Id sesi yang sudah berakhir tidak perlu disimpan lagi.
+  useEffect(() => {
+    if (streams.isSuccess) prune(all.map((s) => s.id));
+  }, [streams.isSuccess, all, prune]);
 
   // Pinned first, then newest — so a tracked stream never jumps position when
   // another operator starts broadcasting.
@@ -110,14 +128,22 @@ export default function Streams() {
               <Radio size={16} className="text-danger" />
               Siaran Langsung
               <span className="rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-medium text-danger-strong">
-                {live.length} aktif
+                {all.length} aktif
               </span>
             </h1>
             <p className="truncate text-xs text-ink-muted">
               {pinned.length > 0 && `${pinned.length} disematkan · `}
+              {hiddenCount > 0 && `${hiddenCount} disembunyikan · `}
               {unmuted.length > 0 ? `${unmuted.length} audio menyala` : 'semua audio bisu'}
             </p>
           </div>
+
+          {hiddenCount > 0 && (
+            <button type="button" className="btn-secondary btn-sm" onClick={showAll}>
+              <Eye size={14} />
+              Tampilkan {hiddenCount} tersembunyi
+            </button>
+          )}
 
           <button
             type="button"
@@ -144,9 +170,13 @@ export default function Streams() {
         ) : live.length === 0 ? (
           <div className="card py-16">
             <EmptyState
-              icon={<VideoOff size={22} />}
-              title="Tidak ada siaran aktif"
-              hint="Siaran muncul otomatis saat personel menekan MULAI SIARAN di aplikasi lapangan."
+              icon={hiddenCount > 0 ? <EyeOff size={22} /> : <VideoOff size={22} />}
+              title={hiddenCount > 0 ? 'Semua siaran disembunyikan' : 'Tidak ada siaran aktif'}
+              hint={
+                hiddenCount > 0
+                  ? `${hiddenCount} siaran aktif sedang Anda sembunyikan. Gunakan tombol "Tampilkan tersembunyi" di atas untuk memunculkannya kembali.`
+                  : 'Siaran muncul otomatis saat personel menekan MULAI SIARAN di aplikasi lapangan.'
+              }
             />
           </div>
         ) : (
@@ -163,6 +193,7 @@ export default function Streams() {
                   onPin={() => setPinned((p) => toggle(p, stage.id))}
                   onMute={() => setUnmuted((m) => toggle(m, stage.id))}
                   onHighlight={() => setHighlighted(null)}
+                  onHide={() => hide(stage.id)}
                 />
 
                 {/* Sidebar keeps the rest watchable while one is on stage. */}
@@ -177,6 +208,7 @@ export default function Streams() {
                       onPin={() => setPinned((p) => toggle(p, s.id))}
                       onMute={() => setUnmuted((m) => toggle(m, s.id))}
                       onHighlight={() => setHighlighted(s.id)}
+                      onHide={() => hide(s.id)}
                     />
                   ))}
                 </div>
@@ -195,6 +227,7 @@ export default function Streams() {
                     onPin={() => setPinned((p) => toggle(p, s.id))}
                     onMute={() => setUnmuted((m) => toggle(m, s.id))}
                     onHighlight={() => setHighlighted(s.id)}
+                    onHide={() => hide(s.id)}
                   />
                 ))}
               </section>
@@ -218,6 +251,7 @@ function StreamCard({
   onPin,
   onMute,
   onHighlight,
+  onHide,
 }: {
   stream: Stream;
   pinned: boolean;
@@ -228,6 +262,7 @@ function StreamCard({
   onPin: () => void;
   onMute: () => void;
   onHighlight: () => void;
+  onHide: () => void;
 }) {
   // The stage view is large, so it asks for the top simulcast layer; grid tiles
   // stay adaptive to keep many concurrent streams affordable.
@@ -366,6 +401,14 @@ function StreamCard({
               title={highlighted ? 'Keluar dari highlight' : 'Jadikan highlight'}
             >
               {highlighted ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </ControlButton>
+
+            <ControlButton
+              onClick={onHide}
+              active={false}
+              title={`Sembunyikan siaran ${stream.officer.fullName}`}
+            >
+              <EyeOff size={14} />
             </ControlButton>
           </div>
         </div>
