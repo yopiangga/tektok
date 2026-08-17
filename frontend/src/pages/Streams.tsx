@@ -118,18 +118,26 @@ export default function Streams() {
   return (
     <div className="flex min-h-screen flex-col bg-canvas">
       <header className="sticky top-0 z-30 border-b border-line bg-canvas-raised/90 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-[110rem] items-center gap-3 px-4 lg:px-6">
+        <div className="relative mx-auto flex h-16 max-w-[110rem] items-center gap-3 px-4 lg:px-6">
+          {/* Brand duduk di tengah bilah, lepas dari alur: sebagai item flex biasa
+              ia akan didorong lebar judul dan jumlah tombol yang berubah-ubah,
+              jadi posisinya bergeser tiap kali satu tombol muncul. Di bawah `xl`
+              tengahnya bisa tertabrak deretan tombol, jadi logo kembali ke sisi
+              kiri dengan ukuran semula. */}
+          <PartnerLogo
+            height={44}
+            className="pointer-events-none absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 xl:block"
+          />
+
           <Link
             to="/dashboard"
-            className="grid h-9 w-9 place-items-center rounded-lg border border-line text-ink-soft transition-colors hover:bg-canvas-sunken"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line text-ink-soft transition-colors hover:bg-canvas-sunken"
             aria-label="Kembali ke dashboard"
           >
             <ArrowLeft size={18} />
           </Link>
 
-          {/* Satu-satunya tempat brand di halaman ini. Video sengaja dibiarkan
-              bersih; logo di sini yang menjelaskan siaran ini milik siapa. */}
-          <PartnerLogo height={30} className="shrink-0" />
+          <PartnerLogo height={30} className="shrink-0 xl:hidden" />
 
           <div className="min-w-0 flex-1">
             <h1 className="flex flex-wrap items-center gap-x-2 text-sm font-semibold text-ink">
