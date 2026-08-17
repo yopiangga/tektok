@@ -14,11 +14,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  PartnerLogo,
-  PartnerWatermark,
-  PartnerWordmark,
-} from '../components/ui/PartnerBrand';
+import { PartnerLogo, PartnerMark, PartnerWatermark } from '../components/ui/PartnerBrand';
 import { EmptyState, PanelLoading } from '../components/ui/Primitives';
 import { useHiddenStreams } from '../hooks/useHiddenStreams';
 import { useLiveStreams } from '../hooks/useLiveStreams';
@@ -252,10 +248,8 @@ export default function Streams() {
           terbaca bahkan saat belum ada satu pun siaran yang tampil. */}
       <footer className="border-t border-line bg-canvas-raised px-4 py-2.5 lg:px-6">
         <div className="mx-auto flex max-w-[110rem] flex-wrap items-center gap-x-3 gap-y-1">
-          <PartnerWordmark className="text-[9px]" />
-          <p className="text-[11px] text-ink-muted">
-            Siaran Langsung {PARTNER_BRAND}
-          </p>
+          <PartnerMark height={24} textClassName="text-[9px]" />
+          <p className="text-[11px] text-ink-muted">Siaran Langsung {PARTNER_BRAND}</p>
           <span className="ml-auto text-[11px] text-ink-faint">
             dipantau dari {BRAND} {BRAND_VERSION}
           </span>

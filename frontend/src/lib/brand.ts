@@ -33,12 +33,14 @@ export const PARTNER_BRAND = 'Kamera Nusantara';
 export const PARTNER_WORDMARK: readonly [string, string] = ['KAMERA', 'NUSANTARA'];
 
 /**
- * Letak berkas logo di `frontend/public`, mis. `/kamera-nusantara.png`.
+ * Berkas logo di `frontend/public`, disalin apa adanya ke akar situs saat build.
  *
- * Selama masih null, yang dipakai adalah wordmark tipografi. Ini disengaja:
- * `<img>` yang menunjuk berkas tidak ada akan tampil sebagai gambar rusak di
- * produksi, sedangkan wordmark selalu tampil benar. Begitu berkas logonya
- * ditaruh di `frontend/public`, cukup isi konstanta ini — header dan watermark
- * langsung memakai logo itu tanpa perubahan lain.
+ * Kalau dikosongkan (null), seluruh tampilan brand jatuh ke wordmark tipografi
+ * di atas dan tidak ada `<img>` yang menunjuk berkas tak ada — jadi mengganti
+ * atau menarik logo cukup di satu tempat ini.
+ *
+ * Berkasnya berlatar putih pekat, bukan transparan: bagian dalam lensa kamera
+ * dan ornamennya memang putih, jadi membuat putih jadi transparan akan
+ * melubangi marknya. Karena itu logo selalu ditaruh di atas bidang terang.
  */
-export const PARTNER_LOGO_SRC: string | null = null;
+export const PARTNER_LOGO_SRC: string | null = '/kamera-nusantara.png';

@@ -50,6 +50,21 @@ export function PartnerLogo({ height, className }: { height: number; className?:
   );
 }
 
+/** Logo kalau berkasnya ada, wordmark kalau tidak. Tinggi keduanya disetarakan. */
+export function PartnerMark({
+  height,
+  textClassName,
+}: {
+  height: number;
+  textClassName?: string;
+}) {
+  return PARTNER_LOGO_SRC ? (
+    <PartnerLogo height={height} />
+  ) : (
+    <PartnerWordmark className={textClassName} />
+  );
+}
+
 /**
  * Penanda brand di dalam bingkai video, seperti bug stasiun televisi: ikut
  * terbawa saat frame diproyeksikan atau dipotret, bukan hanya menempel di
@@ -59,21 +74,16 @@ export function PartnerWatermark({ className }: { className?: string }) {
   return (
     <div
       className={cx(
-        // Bantalan terang, bukan gelap: logo aslinya bertulisan hitam dan dibuat
-        // untuk latar putih, jadi warna brand tetap benar di atas video apa pun.
-        'pointer-events-none absolute select-none rounded-md bg-white/80 px-2 py-1 shadow-soft backdrop-blur-sm',
+        // Bantalan terang, bukan gelap: logo dibuat untuk latar putih, jadi
+        // warna brand tetap benar di atas video apa pun. Dengan logo bantalannya
+        // putih pekat — logo itu membawa latar putihnya sendiri, dan bidang
+        // separuh tembus di sekelilingnya akan terlihat seperti dua lapis.
+        'pointer-events-none absolute select-none rounded-md px-2 py-1 shadow-soft',
+        PARTNER_LOGO_SRC ? 'bg-white' : 'bg-white/80 backdrop-blur-sm',
         className
       )}
     >
-      {PARTNER_LOGO_SRC ? (
-        <img
-          src={PARTNER_LOGO_SRC}
-          alt={PARTNER_BRAND}
-          className="h-6 w-auto select-none object-contain"
-        />
-      ) : (
-        <PartnerWordmark className="text-[9px]" />
-      )}
+      <PartnerMark height={22} textClassName="text-[9px]" />
     </div>
   );
 }
